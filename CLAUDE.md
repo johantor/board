@@ -1,6 +1,6 @@
 # board — Claude Code notes
 
-This repository is the `board` Claude Code plugin: the plugin is the repository root. The
+This repository is the `board` Claude Code plugin: the plugin lives in `plugin/`. The
 `johantor` marketplace lives in [johantor/plugins](https://github.com/johantor/plugins).
 
 **Start with [AGENTS.md](AGENTS.md)**: the contributor guide (layout, validating, releasing,

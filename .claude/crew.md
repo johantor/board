@@ -22,7 +22,7 @@ planDirectory: unset
 ---
 
 The crew configuration for developing board with the `crew` plugin; `/crew:init` reconciles it.
-The plugin is the repository root: a Bash hook and a Node server with no dependencies, so
+The plugin is `plugin/`: a Bash hook and a Node server with no dependencies, so
 `backendStack` is `node` and there is no build. The page under `plugin/server/public/` is a view with no
 framework, so `frontendStack` is `other` (no crew skill, `frontendSkill: none`) in `headless` mode:
 it renders from the server's JSON stream, with no server template. Both sides are JavaScript, so
