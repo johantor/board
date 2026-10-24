@@ -1,6 +1,6 @@
 # board — Claude Code notes
 
-This repository is the `board` Claude Code plugin: the plugin is the repository root. The
+This repository is the `board` Claude Code plugin: the plugin lives in `plugin/`. The
 `johantor` marketplace lives in [johantor/plugins](https://github.com/johantor/plugins).
 
 **Start with [AGENTS.md](AGENTS.md)**: the contributor guide (layout, validating, releasing,
@@ -41,6 +41,8 @@ execution. With the crew hooks loaded, reads and writes go through `Read`, `Edit
 not the shell, and nothing is pushed until the operator runs `/crew:pr`.
 
 ## Map
+
+Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users install.
 
 - `hooks/capture.sh` — the one hook, wired on 12 events in `hooks/hooks.json`, async on all but
   `PermissionRequest` and `SessionEnd` (synchronous, `timeout: 5`: the first lands before its
