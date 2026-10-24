@@ -1,7 +1,44 @@
-# board — quick reference for agents working on this plugin
+# board — Claude Code notes
 
-Board-specific map. **Keep it accurate: a PR that changes anything stated here updates this file
-in the same commit.** Contributor rules: [AGENTS.md](AGENTS.md).
+This repository is the `board` Claude Code plugin: the plugin is the repository root. The
+`johantor` marketplace lives in [johantor/plugins](https://github.com/johantor/plugins).
+
+**Start with [AGENTS.md](AGENTS.md)**: the contributor guide (layout, validating, releasing,
+conventions). It is the single source of truth for working in this repo. This file holds how
+Claude works here, then the code map. **Keep it accurate: a PR that changes anything stated here
+updates this file in the same commit.**
+
+## Communication style
+
+Use ASD-STE-100 (Simplified Technical English) when you speak to the operator: short sentences,
+the active voice, one instruction per sentence, and the same word for the same thing each time.
+This applies to what you say to the operator, not to what you write into the repository.
+
+## Engineering rules
+
+Every change follows
+[`engineering-principles`](.github/skills/engineering-principles/SKILL.md). Read it before you
+write code, and re-read your diff against it before you finish. Before you open a PR or push to
+one, run the `board-review` skill on the diff and fix its Blocking and Warning findings first.
+
+## Brevity
+
+- **Replies**: the result first, then what the operator must decide. Under 150 words unless the
+  operator asks for more.
+- **Code comments**: explain *why*, in one or two lines. A longer rationale lives once, here or in
+  `AGENTS.md`, and the comment points there.
+- **Docs and PR bodies**: facts, not history. Before you add a paragraph, cut one.
+- **Fixes**: prefer removing code to adding a parser. If a second review round finds new edge
+  cases of the mechanism you already patched, stop and ask the operator: redesign, or accept the
+  gap and list it in the README's *Known gaps*.
+
+## Developing with crew
+
+The repo carries a crew configuration in [.claude/crew.md](.claude/crew.md), so `/crew:feature`
+and `claude --agent crew:lead` work here: `lead` plans and delegates each step to a worker
+subagent that edits files in this working tree. It is ordinary in-repo development, not remote
+execution. With the crew hooks loaded, reads and writes go through `Read`, `Edit` and `Write`,
+not the shell, and nothing is pushed until the operator runs `/crew:pr`.
 
 ## Map
 

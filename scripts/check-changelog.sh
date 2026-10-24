@@ -3,8 +3,8 @@
 # `claude plugin update` keys on `version`, and a version's release notes are its
 # CHANGELOG section, so an unbumped change ships described nowhere.
 #
-# Shipped = everything except repo tooling (tests/, scripts/, .github/) and
-# contributor material (CLAUDE.md, AGENTS.md, CHANGELOG.md itself).
+# Shipped = everything except repo tooling (tests/, scripts/, .github/, .claude/), the site
+# (docs/), and contributor material (the root guides and policies below). README.md counts.
 #   scripts/check-changelog.sh [<branch>]     # default: main
 set -euo pipefail
 
@@ -22,8 +22,9 @@ merge_base="$(git merge-base "$base_sha" HEAD)"
 
 manifest=".claude-plugin/plugin.json"
 changed="$(git diff --name-only "$merge_base" -- . \
-  ':(exclude)tests' ':(exclude)scripts' ':(exclude).github' \
-  ':(exclude)CHANGELOG.md' ':(exclude)CLAUDE.md' ':(exclude)AGENTS.md')"
+  ':(exclude)tests' ':(exclude)scripts' ':(exclude).github' ':(exclude).claude' ':(exclude)docs' \
+  ':(exclude)AGENTS.md' ':(exclude)CLAUDE.md' ':(exclude)CHANGELOG.md' ':(exclude)CONTRIBUTING.md' \
+  ':(exclude)CODE_OF_CONDUCT.md' ':(exclude)PRIVACY.md' ':(exclude)SECURITY.md')"
 if [ -z "$changed" ]; then
   echo "Changelog check passed (no shipped changes)."
   exit 0
