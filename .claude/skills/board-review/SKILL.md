@@ -13,10 +13,10 @@ skill adds only what a session with a shell can do.
 2. **Run every `run:` step in `.github/workflows/validate.yml`**, with the PR's base branch as
    the changelog base (`main` when there is no PR). Name any you cannot run (a missing
    `shellcheck` or `node`). A red check is Blocking.
-3. **Reproduce every finding.** A hook finding: pipe the payload into `hooks/capture.sh` with
+3. **Reproduce every finding.** A hook finding: pipe the payload into `plugin/hooks/capture.sh` with
    `CLAUDE_BOARD_DIR` set to a temp dir and read the line it writes. A reducer finding: feed the
    records to `apply()` in a `node -e` script, in both orders when order is the claim. A server
-   finding: start `node server/board.mjs --port 0` against a temp `CLAUDE_BOARD_DIR` and send the
+   finding: start `node plugin/server/board.mjs --port 0` against a temp `CLAUDE_BOARD_DIR` and send the
    request. No wrong result, no Blocking finding.
 4. **Check new tests pin something**: run the changed suite against the base version of every
    changed file. A new case that still passes is a Warning.

@@ -8,17 +8,17 @@ NOT here: self-review write-ups, narratives, pasted tool output. See AGENTS.md, 
 
 ## Version / changelog
 
-<!-- A shipped change bumps `version` in .claude-plugin/plugin.json and adds a matching
-CHANGELOG.md entry (AGENTS.md, "Releasing"). CI blocks a shipped change without a bump. -->
+<!-- A change under plugin/ bumps `version` in plugin/.claude-plugin/plugin.json and adds a
+matching CHANGELOG.md entry (AGENTS.md, "Releasing"). CI blocks it without a bump. -->
 
 - [ ] Bumped the version + matching `CHANGELOG.md` entry
-- [ ] N/A — nothing shipped changed (CI, docs/, tests, CLAUDE.md, AGENTS.md)
+- [ ] N/A — nothing under plugin/ changed
 
 ## Test plan
 
 <!-- Results, not transcripts: "ran X, all green". -->
 
-- [ ] `shellcheck hooks/*.sh tests/*.sh scripts/*.sh`
+- [ ] `shellcheck plugin/hooks/*.sh tests/*.sh scripts/*.sh`
 - [ ] `bash tests/capture.test.sh` and `bash tests/release.test.sh`
 - [ ] Opened the board on a seeded log (page changes)
 

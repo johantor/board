@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Hook test harness, copied from johantor/crew (tests/hooks/lib.sh). Feed a
+# Hook test harness, copied from johantor/crew (tests/lib.sh). Feed a
 # crafted JSON payload on stdin, assert the exit code and stderr. No LLM, no
-# network. Sourced by tests/*.test.sh; HOOKS_DIR is the hooks/ beside tests/.
+# network. Sourced by tests/*.test.sh; HOOKS_DIR is plugin/hooks/.
 
 # No `set -e`: an assertion failure records and continues so one run reports
 # every failure, not just the first.
@@ -11,7 +11,7 @@ if [ -z "${BASH_SOURCE[1]:-}" ]; then
   echo "FATAL: tests/lib.sh is a harness — source it from a *.test.sh, don't run it" >&2
   exit 1
 fi
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[1]}")/../hooks" 2>/dev/null && pwd)"
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[1]}")/../plugin/hooks" 2>/dev/null && pwd)"
 if [ -z "$HOOKS_DIR" ] || [ ! -d "$HOOKS_DIR" ]; then
   echo "FATAL: no hooks/ directory beside $(dirname "${BASH_SOURCE[1]}")" >&2
   exit 1
