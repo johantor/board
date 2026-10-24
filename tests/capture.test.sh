@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Behavioral tests for hooks/capture.sh (the board's event capture; never blocks),
 # then the Node suite for the reducer, history backfill and server.
-# shellcheck source=tests/hooks/lib.sh
+# shellcheck source=tests/lib.sh
 # shellcheck disable=SC1090,SC1091
-source "$(dirname "${BASH_SOURCE[0]}")/../../../tests/hooks/lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 HOOK="capture.sh"
 
 # The board needs Node; a missing one fails the suite rather than skipping it.

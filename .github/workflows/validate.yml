@@ -1,0 +1,59 @@
+name: Validate
+
+# Push runs are limited to main: other branches are validated through pull_request.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shellcheck:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Lint shell files
+        run: shellcheck hooks/*.sh tests/*.sh scripts/*.sh
+
+  manifest:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Manifest is valid and has a changelog entry
+        run: |
+          set -euo pipefail
+          jq -e '.name == "board" and (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))' .claude-plugin/plugin.json
+          jq empty hooks/hooks.json
+          grep -qF "## [$(jq -r .version .claude-plugin/plugin.json)]" CHANGELOG.md
+
+  # Diff-based, so it needs a base branch: pull requests only.
+  changelog:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Shipped changes carry release notes
+        run: scripts/check-changelog.sh "${{ github.base_ref }}"
+
+  tests:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Hook and server tests
+        run: bash tests/capture.test.sh

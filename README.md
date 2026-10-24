@@ -5,7 +5,7 @@ which sessions need you now, what is running and where, and what you worked on y
 to get back into it.
 
 ```bash
-claude plugin marketplace add johantor/crew
+claude plugin marketplace add johantor/plugins
 claude plugin install board@johantor
 ```
 
