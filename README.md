@@ -9,6 +9,8 @@ claude plugin marketplace add johantor/plugins
 claude plugin install board@johantor
 ```
 
+Site: <https://johantor.github.io/board/>
+
 Then, in any Claude Code session, run `/board:open`. It starts the server in the background and
 opens `http://127.0.0.1:7428/?t=<token>`. The token keeps other users on the machine out. The
 page moves it into the browser's local storage for that port, so a bookmark of
