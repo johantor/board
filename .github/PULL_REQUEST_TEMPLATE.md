@@ -19,7 +19,7 @@ CHANGELOG.md entry (AGENTS.md, "Releasing"). CI blocks a shipped change without 
 <!-- Results, not transcripts: "ran X, all green". -->
 
 - [ ] `shellcheck hooks/*.sh tests/*.sh scripts/*.sh`
-- [ ] `bash tests/capture.test.sh`
+- [ ] `bash tests/capture.test.sh` and `bash tests/release.test.sh`
 - [ ] Opened the board on a seeded log (page changes)
 
 ## Related issues

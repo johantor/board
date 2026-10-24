@@ -12,7 +12,8 @@ here.
 ## Repository layout
 
 - `.claude-plugin/`, `hooks/`, `server/`, `commands/`: the plugin (CLAUDE.md, *Map*).
-- `tests/`: the hook suite (`capture.test.sh`, harness in `lib.sh`) and the Node suite.
+- `tests/`: the hook suite (`capture.test.sh`, harness in `lib.sh`), the Node suite, and
+  `release.test.sh` for the release scripts.
 - `scripts/`: repo tooling, never part of the plugin's behaviour: `check-changelog.sh` (the
   release gate) and `release-notes.sh` (used by `auto-release.yml`).
 - `docs/`: the site on GitHub Pages. `style.css` is an exact copy of crew's `docs/style.css`;
@@ -31,6 +32,7 @@ Run what CI runs (`.github/workflows/validate.yml`) before you push:
 ```bash
 shellcheck hooks/*.sh tests/*.sh scripts/*.sh
 bash tests/capture.test.sh          # hook end to end, then the Node suite
+bash tests/release.test.sh          # the changelog gate and the release notes
 scripts/check-changelog.sh main     # shipped change => version bump
 ```
 
