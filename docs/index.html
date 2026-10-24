@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>board — every Claude Code session on one board</title>
+<meta name="description" content="board is a Claude Code plugin: a local kanban board of every session on your machine. What needs you, what is running, and what you closed today.">
+<link rel="canonical" href="https://johantor.github.io/board/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="board — every Claude Code session on one board">
+<meta property="og:description" content="What needs you, what is running, and what you closed today. Local only.">
+<meta property="og:url" content="https://johantor.github.io/board/">
+<meta property="og:image" content="https://johantor.github.io/board/board-light.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f3bff'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='Arial' font-weight='900' font-size='17' fill='white'%3Eb%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="board.css">
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <span class="brand">board<i>.</i></span>
+    <ul>
+      <li><a href="#columns">Columns</a></li>
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#privacy">Privacy</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="https://github.com/johantor/board">GitHub&nbsp;↗</a></li>
+    </ul>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Claude Code plugin · local session board</div>
+    <h1>Every session on one <em>board.</em></h1>
+    <p class="lede">Five terminals, three repos, one prompt waiting for you somewhere. board shows every
+      Claude Code session on your machine as a card: <strong>what needs you now</strong>, what is
+      running and where, and <strong>how to get back</strong> into what you worked on yesterday.</p>
+
+    <div class="install" id="install">
+<pre id="cmd"><span class="p">$ </span>claude plugin marketplace add johantor/plugins
+<span class="p">$ </span>claude plugin install board@johantor</pre>
+      <button class="copy" id="copy" type="button">Copy commands</button>
+    </div>
+    <p class="hint">Then run <code>/board:open</code> in any session.</p>
+
+    <div class="cta">
+      <a class="btn primary" href="#columns">See the columns</a>
+      <a class="btn" href="https://github.com/johantor/board">Source on GitHub</a>
+    </div>
+  </div>
+</header>
+
+<section id="shot">
+  <div class="wrap">
+    <figure>
+      <picture>
+        <source srcset="board-dark.png" media="(prefers-color-scheme: dark)">
+        <img src="board-light.png" width="1440" height="640"
+             alt="The board: five columns named Needs me, Working, Your turn, Closed today and Earlier, each with session cards that show a title, repo, branch, latest activity and a Copy resume button.">
+      </picture>
+      <figcaption>A permission prompt in Needs me, a crew run with two subagents in Working, and a reply waiting in Your turn.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="columns">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">The columns</div>
+      <h2>Where each session stands.</h2>
+      <p>Each card shows the title, the repo and branch, the latest activity, and how long ago it
+        happened. <strong>Copy resume</strong> copies <code>cd '&lt;dir&gt;'; claude --resume &lt;id&gt;</code>.</p>
+    </div>
+    <div class="lanes">
+      <div class="lane needs"><h3>Needs me</h3>
+        <p>A permission prompt, a question, or an API error. The tab title counts them.</p></div>
+      <div class="lane working"><h3>Working</h3>
+        <p>Claude is on a turn. Subagents show on their session's card with the tool they run.</p></div>
+      <div class="lane turn"><h3>Your turn</h3>
+        <p>The turn ended and Claude waits for your next prompt.</p></div>
+      <div class="lane today"><h3>Closed today</h3>
+        <p>Sessions that ended today, with their last reply.</p></div>
+      <div class="lane earlier"><h3>Earlier</h3>
+        <p>The last 7 days. Press <code>/</code> to search back 30.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">How it works</div>
+      <h2>Hooks write a file. The board reads it.</h2>
+    </div>
+    <ol class="steps">
+      <li><b>A hook logs each event</b><span>Twelve session events each append one short line to
+        <code>~/.claude/board/events.jsonl</code>. Ten hooks are async; none fails a session.</span></li>
+      <li><b>The server folds the log</b><span>It replays the file into cards and tails it every
+        second. No event is lost while the server is down.</span></li>
+      <li><b>History fills the gaps</b><span>It reads the start and end of each transcript, so
+        sessions from before the plugin show up too.</span></li>
+    </ol>
+  </div>
+</section>
+
+<section id="privacy">
+  <div class="wrap split">
+    <div>
+      <div class="sec-head">
+        <div class="kicker">Privacy</div>
+        <h2>It stays on your machine.</h2>
+        <p>Prompts and replies can hold client code and secrets. Nothing is sent anywhere.</p>
+      </div>
+      <ul class="checks">
+        <li><b>127.0.0.1 only.</b> A request that names another host is refused.</li>
+        <li><b>A token for session data.</b> From a file only you can read, sent as a header, never a cookie.</li>
+        <li><b>Short lines.</b> At most 200 characters of a prompt and 300 of a reply, in a mode-600 file.</li>
+      </ul>
+    </div>
+<pre class="logline"><span class="c"># one line per event, appended by the hook</span>
+{<span class="k">"v"</span>:1,
+ <span class="k">"ts"</span>:1792818514701,
+ <span class="k">"e"</span>:"PermissionRequest",
+ <span class="k">"sid"</span>:"4f1c…",
+ <span class="k">"pm"</span>:"default",
+ <span class="k">"tool"</span>:"Bash npm run test -- checkout",
+ <span class="k">"call"</span>:"c25e708c98724cee"}</pre>
+  </div>
+</section>
+
+<section id="requirements">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">Requirements</div>
+      <h2>Node, and that's it.</h2>
+    </div>
+    <ul class="cmds">
+      <li><code>Claude Code</code><span>CLI, desktop or IDE extension, with plugin support.</span></li>
+      <li><code>Node.js 18+</code><span>On the <code>PATH</code> that Claude Code's hooks see. No packages to install.</span></li>
+      <li><code>Windows</code><span>Git for Windows, so the hook runs in Git Bash.</span></li>
+    </ul>
+    <p class="note">Known gaps, such as the card that stays in Needs me while an approved tool runs, are
+      listed in the <a href="https://github.com/johantor/board#known-gaps">README</a>.</p>
+  </div>
+</section>
+
+<section id="crew">
+  <div class="wrap">
+    <div class="band">
+      <div>
+        <h2>Running a crew?</h2>
+        <p>Sessions that run a <code>crew:</code> agent get a Crew badge, and each subagent shows on
+          the card with its current tool.</p>
+      </div>
+      <a class="btn primary" href="https://johantor.github.io/crew/">Meet crew</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="flinks">
+      <a href="https://github.com/johantor/board">GitHub</a>
+      <a href="https://github.com/johantor/board/blob/main/README.md">Docs</a>
+      <a href="https://github.com/johantor/board/releases">Releases</a>
+      <a href="https://github.com/johantor/plugins">Marketplace</a>
+      <a href="https://johantor.github.io/crew/">crew</a>
+    </div>
+    <p class="fine">Apache-2.0. The plugin collects no data and sends nothing to the maintainers.</p>
+    <p class="fine">An independent project. Not affiliated with or endorsed by Anthropic.</p>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('copy').addEventListener('click', function () {
+    const text = document.getElementById('cmd').innerText.replace(/^\$ /gm, '').trim();
+    const done = (ok) => {
+      if (!ok) {
+        // No clipboard access: select the commands so the platform's copy shortcut works.
+        const range = document.createRange();
+        range.selectNodeContents(document.getElementById('cmd'));
+        getSelection().removeAllRanges();
+        getSelection().addRange(range);
+      }
+      this.textContent = ok ? 'Copied' : 'Selected: copy with your shortcut';
+      setTimeout(() => { this.textContent = 'Copy commands'; }, 2400);
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => done(true), () => done(false));
+    } else {
+      done(false);
+    }
+  });
+</script>
+
+</body>
+</html>
