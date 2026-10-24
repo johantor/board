@@ -30,7 +30,7 @@
   .checks li{padding:10px 0 10px 32px;position:relative;border-bottom:1px solid var(--line);font-size:15.5px}
   .checks li::before{content:"✓";position:absolute;left:4px;color:var(--go);font-weight:900}
   .checks b{color:var(--ink)}
-  .logline{background:var(--ink);border-radius:18px;padding:22px 24px;font:13px/1.8 var(--mono);color:#e8e8f4;
+  .logline{background:var(--term);border:1px solid var(--line);border-radius:18px;padding:22px 24px;font:13px/1.8 var(--mono);color:#e8e8f4;
            overflow-x:auto;white-space:pre}
   .logline .k{color:#8c93ff}
   .logline .c{color:#8b8ea6}
