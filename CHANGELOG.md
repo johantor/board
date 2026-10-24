@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- A site at johantor.github.io/board; the README and `homepage` link to it.
+- A site at johantor.github.io/board; the README and `homepage` link to it (#1).
 
 ## [0.1.2] - 2026-10-24
 
