@@ -1,12 +1,12 @@
 {
   "name": "board",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "license": "Apache-2.0",
   "description": "A local kanban board of every Claude Code session: what needs you, what is running, what you closed today. Hooks log each session's state, a small Node server on 127.0.0.1 shows it as cards, and a click copies the resume command. Crew runs show their subagents on the session's card.",
   "author": {
     "name": "johantor"
   },
-  "homepage": "https://github.com/johantor/board",
+  "homepage": "https://johantor.github.io/board/",
   "repository": "https://github.com/johantor/board",
   "keywords": [
     "claude-code",

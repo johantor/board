@@ -1,0 +1,53 @@
+  /* Board-only layouts. style.css stays an exact copy of the crew site's, so additions live here. */
+  :root{--needs:var(--warm);--working:var(--accent);--turn:var(--go);--done:var(--muted)}
+
+  /* columns: a miniature board instead of a card grid */
+  .lanes{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+  .lane{background:var(--soft);border-radius:18px;padding:16px 16px 20px;border-top:4px solid var(--c)}
+  .lane h3{font-family:var(--sans);font-size:12.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+           display:flex;align-items:center;gap:8px}
+  .lane h3::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c)}
+  .lane p{margin:10px 0 0;font-size:14.5px;color:var(--muted)}
+  .lane.needs{--c:var(--needs);background:var(--warm-soft)}
+  .lane.working{--c:var(--working)}
+  .lane.turn{--c:var(--turn)}
+  .lane.today,.lane.earlier{--c:var(--done)}
+
+  /* how it works: numbered steps */
+  .steps{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(3,1fr);gap:0;
+         counter-reset:step;border-top:2px solid var(--ink)}
+  .steps li{counter-increment:step;padding:24px 28px 8px 0}
+  .steps li + li{padding-left:28px;border-left:1px solid var(--line)}
+  .steps li::before{content:counter(step,decimal-leading-zero);display:block;font-family:var(--display);
+                    font-weight:900;font-size:3rem;line-height:1;letter-spacing:-.04em;color:var(--accent);margin-bottom:14px}
+  .steps b{display:block;color:var(--ink);font-family:var(--display);font-weight:800;font-size:1.15rem;margin-bottom:6px}
+  .steps span{color:var(--muted);font-size:15.5px}
+
+  /* privacy: text beside a sample log line */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+  .split .sec-head{margin-bottom:0}
+  .checks{list-style:none;padding:0;margin:24px 0 0}
+  .checks li{padding:10px 0 10px 32px;position:relative;border-bottom:1px solid var(--line);font-size:15.5px}
+  .checks li::before{content:"✓";position:absolute;left:4px;color:var(--go);font-weight:900}
+  .checks b{color:var(--ink)}
+  .logline{background:var(--ink);border-radius:18px;padding:22px 24px;font:13px/1.8 var(--mono);color:#e8e8f4;
+           overflow-x:auto;white-space:pre}
+  .logline .k{color:#8c93ff}
+  .logline .c{color:#8b8ea6}
+
+  /* crew band */
+  .band{display:flex;gap:24px;align-items:center;justify-content:space-between;flex-wrap:wrap;
+        background:var(--accent-soft);border-radius:24px;padding:32px 36px}
+  .band h2{font-size:clamp(1.6rem,3.6vw,2.4rem)}
+  .band p{margin:10px 0 0;color:var(--text);max-width:36rem}
+
+  @media (max-width:900px){
+    .lanes{grid-template-columns:1fr 1fr}
+    .split{grid-template-columns:1fr;gap:28px}
+  }
+  @media (max-width:640px){
+    .lanes{grid-template-columns:1fr}
+    .steps{grid-template-columns:1fr}
+    .steps li + li{padding-left:0;border-left:0;border-top:1px solid var(--line)}
+    .band{padding:24px}
+  }
