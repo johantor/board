@@ -71,5 +71,9 @@ Changelog entries are one bullet per change, one line, with the PR as `(#N)`.
 - **Every review comment gets a reply, then the thread is resolved.** A correct finding is fixed
   and pushed now, whatever its label; decline only a finding that is wrong, and say why.
 - One branch and PR per issue, from the latest `main`; link the issue with `Closes #N`.
+- **Name the branch for what it changes**: `<type>/<issue>-<slug>`, with the Conventional
+  Commits type and a slug of three to five words, such as `fix/12-stale-badge-after-esc`. With no
+  issue, drop `<issue>-`: `docs/readme-crew-structure`. A generated name such as
+  `claude/vigilant-keller-vvje0k` says nothing in the branch list; rename it before you push.
 - READMEs, changelogs, PR bodies and issues follow the `writing-style` skill
   (`.github/skills/writing-style/SKILL.md`).

@@ -16,7 +16,7 @@ backendLintCommand: shellcheck hooks/*.sh tests/*.sh scripts/*.sh
 frontendLintCommand: none
 formatMatrix: none
 baseBranch: main
-branchNaming: unset
+branchNaming: <type>/<issue>-<slug>
 runUrl: none
 planDirectory: unset
 ---
