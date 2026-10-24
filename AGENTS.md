@@ -15,7 +15,8 @@ here.
 - `tests/`: the hook suite (`capture.test.sh`, harness in `lib.sh`) and the Node suite.
 - `scripts/`: repo tooling, never part of the plugin's behaviour: `check-changelog.sh` (the
   release gate) and `release-notes.sh` (used by `auto-release.yml`).
-- `docs/`: the site on GitHub Pages. `style.css` is a copy of crew's `docs/style.css`.
+- `docs/`: the site on GitHub Pages. `style.css` is an exact copy of crew's `docs/style.css`;
+  board-only layouts go in `board.css`.
 - `.github/`: `workflows/` (CI and release), `skills/` (the repo's own skills, never shipped:
   `code-review`, the one rubric Copilot reads through `copilot-instructions.md`;
   `engineering-principles`, a copy of crew's; and `writing-style`), the PR and issue templates.
