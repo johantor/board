@@ -7,12 +7,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { apply, createBoard } from '../server/reduce.mjs';
-import { byRecency, columnOf, isGone, isStale, STALE_MS } from '../server/public/columns.mjs';
-import { readSession, scanHistory } from '../server/history.mjs';
-import { createTail, parseArgs, proof } from '../server/board.mjs';
-import { clip, distill, summarizeTool, where } from '../server/capture.mjs';
-import { resumeCommand } from '../server/public/resume.mjs';
+import { apply, createBoard } from '../plugin/server/reduce.mjs';
+import { byRecency, columnOf, isGone, isStale, STALE_MS } from '../plugin/server/public/columns.mjs';
+import { readSession, scanHistory } from '../plugin/server/history.mjs';
+import { createTail, parseArgs, proof } from '../plugin/server/board.mjs';
+import { clip, distill, summarizeTool, where } from '../plugin/server/capture.mjs';
+import { resumeCommand } from '../plugin/server/public/resume.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'board-test-'));
@@ -319,7 +319,7 @@ test('the server serves state, refuses foreign hosts, and archives', async (t) =
     `${JSON.stringify({ v: 1, ts: Date.now(), e: 'UserPromptSubmit', sid: 'live', prompt: 'live work' })}\n`,
   );
   // Port 0: the OS picks a free port, which the server prints.
-  const child = spawn(process.execPath, [path.join(HERE, '../server/board.mjs'), '--port', '0'], {
+  const child = spawn(process.execPath, [path.join(HERE, '../plugin/server/board.mjs'), '--port', '0'], {
     env: { ...process.env, CLAUDE_BOARD_DIR: boardDir, CLAUDE_CONFIG_DIR: configDir },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
@@ -431,7 +431,7 @@ test('a squatter on the port reads as busy and never sees the token', async (t) 
   t.after(() => fake.close());
   const boardDir = tmp();
   const res = await new Promise((resolve) => {
-    const child = spawn(process.execPath, [path.join(HERE, '../server/board.mjs'), '--detach', '--port', String(fake.address().port)], {
+    const child = spawn(process.execPath, [path.join(HERE, '../plugin/server/board.mjs'), '--detach', '--port', String(fake.address().port)], {
       env: { ...process.env, CLAUDE_BOARD_DIR: boardDir },
     });
     let err = '';
@@ -504,7 +504,7 @@ test('a planted .git/HEAD cannot hang the hook', { skip: process.platform === 'w
   fs.mkdirSync(path.join(dir, '.git'));
   const fifo = spawnSync('mkfifo', [path.join(dir, '.git', 'HEAD')]);
   assert.equal(fifo.status, 0, 'mkfifo is needed for this case');
-  const probe = `import { gitInfo } from ${JSON.stringify(path.join(HERE, '../server/capture.mjs'))}; console.log(JSON.stringify(gitInfo(${JSON.stringify(dir)})));`;
+  const probe = `import { gitInfo } from ${JSON.stringify(path.join(HERE, '../plugin/server/capture.mjs'))}; console.log(JSON.stringify(gitInfo(${JSON.stringify(dir)})));`;
   const res = spawnSync(process.execPath, ['--input-type=module', '-e', probe], { timeout: 5000, encoding: 'utf8' });
   assert.equal(res.signal, null, 'gitInfo hung on a FIFO');
   assert.deepEqual(JSON.parse(res.stdout), { repo: path.basename(dir) });
@@ -696,7 +696,7 @@ test('a sibling folder with a shared prefix is not inside the cwd', () => {
 test('the hook and the server run through a symlinked install', { skip: process.platform === 'win32' }, () => {
   const dir = tmp();
   const link = path.join(dir, 'plugin');
-  fs.symlinkSync(path.join(HERE, '..'), link);
+  fs.symlinkSync(path.join(HERE, '../plugin'), link);
   const boardDir = path.join(dir, 'board');
   const res = spawnSync(process.execPath, [path.join(link, 'server/capture.mjs')], {
     input: JSON.stringify({ session_id: 's', hook_event_name: 'Stop', last_assistant_message: 'hi' }),

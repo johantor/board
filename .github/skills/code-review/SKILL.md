@@ -6,7 +6,8 @@ description: Review a pull request or diff in the board plugin — the Bash hook
 # Reviewing a board change
 
 This repo ships one Bash hook, a Node server with no dependencies, and a static page. `AGENTS.md` is
-the contributor guide and wins on conflict; `CLAUDE.md` is the code map and its gotchas. This file
+the contributor guide and wins on conflict; `CLAUDE.md` is the code map and its gotchas; the plugin is `plugin/`, and paths below are relative
+to it. This file
 is the one rubric and owns the output format; code rules are the `engineering-principles` skill
 (`.github/skills/engineering-principles/SKILL.md`); Copilot reads it directly and Claude Code's
 `board-review` skill loads it. Adapted from the crew rubric (johantor/crew).
@@ -67,8 +68,7 @@ is the one rubric and owns the output format; code rules are the `engineering-pr
 
 ## Release, tests, docs
 
-- **Shipped change without a bump** (anything `check-changelog.sh` does not exclude; AGENTS.md,
-  *Releasing*, lists them): Warning; Blocking if users miss a fix.
+- **A change under `plugin/` without a bump**: Warning; Blocking if users miss a fix.
 - **A behavior change without a test** that would fail on the base code is a Warning: the hook
   in `capture.test.sh`, everything else in `tests/board.test.mjs`.
 - **`CLAUDE.md` must match the code** in the same PR, and the README's *Known gaps* must match

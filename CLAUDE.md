@@ -42,6 +42,8 @@ not the shell, and nothing is pushed until the operator runs `/crew:pr`.
 
 ## Map
 
+Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users install.
+
 - `hooks/capture.sh` — the one hook, wired on 12 events in `hooks/hooks.json`, async on all but
   `PermissionRequest` and `SessionEnd` (synchronous, `timeout: 5`: the first lands before its
   tool runs, the second before the process exits; `capture.test.sh` asserts the split). A Bash

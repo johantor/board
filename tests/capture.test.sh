@@ -99,7 +99,7 @@ if [ "$mode" = "600" ]; then _pass; else _fail "events.jsonl mode is $mode, expe
 
 # Order the reducer relies on: PermissionRequest lands before its tool runs, and
 # SessionEnd before the process exits, so both run in the foreground; the rest are async.
-wiring="$(dirname "${BASH_SOURCE[0]}")/../hooks/hooks.json"
+wiring="$(dirname "${BASH_SOURCE[0]}")/../plugin/hooks/hooks.json"
 for event in PermissionRequest SessionEnd; do
   if jq -e --arg e "$event" '.hooks[$e][0].hooks[0] | (.async != true) and (.timeout | type == "number")' "$wiring" >/dev/null; then
     _pass

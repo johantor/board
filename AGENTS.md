@@ -1,6 +1,7 @@
 # Contributing to board
 
-`board` is a Claude Code plugin. The plugin is the repository root; it is listed in the
+`board` is a Claude Code plugin. The plugin lives in `plugin/`, the directory the marketplace
+installs, so the repo tooling around it never reaches users. It is listed in the
 `johantor` marketplace ([johantor/plugins](https://github.com/johantor/plugins)). The code map
 and gotchas are in [CLAUDE.md](CLAUDE.md). Keep it accurate: a PR that changes anything it states
 updates it in the same commit.
@@ -11,7 +12,8 @@ here.
 
 ## Repository layout
 
-- `.claude-plugin/`, `hooks/`, `server/`, `commands/`: the plugin (CLAUDE.md, *Map*).
+- `plugin/`: the plugin: `.claude-plugin/`, `hooks/`, `server/`, `commands/`, and the icons'
+  `THIRD-PARTY-NOTICES.md` (CLAUDE.md, *Map*). `README.md` and `CHANGELOG.md` stay at the root.
 - `tests/`: the hook suite (`capture.test.sh`, harness in `lib.sh`), the Node suite, and
   `release.test.sh` for the release scripts.
 - `scripts/`: repo tooling, never part of the plugin's behaviour: `check-changelog.sh` (the
@@ -30,23 +32,22 @@ here.
 Run what CI runs (`.github/workflows/validate.yml`) before you push:
 
 ```bash
-shellcheck hooks/*.sh tests/*.sh scripts/*.sh
+shellcheck plugin/hooks/*.sh tests/*.sh scripts/*.sh
 bash tests/capture.test.sh          # hook end to end, then the Node suite
 bash tests/release.test.sh          # the changelog gate and the release notes
-scripts/check-changelog.sh main     # shipped change => version bump
+scripts/check-changelog.sh main     # a change under plugin/ => version bump
 ```
 
 Node and `jq` are required.
 
 ## Releasing
 
-**A shipped change bumps the version.** Shipped means everything except `tests/`, `scripts/`,
-`.github/`, `.claude/`, `docs/` (the site), `CHANGELOG.md`, and the contributor guides and
-policies (`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `PRIVACY.md`,
-`SECURITY.md`). `README.md` counts. Patch for a fix, minor for an addition, major for a break.
+**A change under `plugin/` bumps the version.** Only `plugin/` reaches users, so nothing else
+counts. Patch for a fix, minor for an addition, major for a break.
 
-1. Bump `version` in `.claude-plugin/plugin.json` and add a matching `## [X.Y.Z]` entry to
-   `CHANGELOG.md` in the same PR.
+1. Bump `version` in `plugin/.claude-plugin/plugin.json` and add a matching `## [X.Y.Z]` entry to
+   `CHANGELOG.md` in the same PR. `check-changelog.sh` (the same script as crew's) fails a change
+   under `plugin/` without one.
 2. Merge to `main`. `auto-release.yml` creates the `v<version>` tag and a GitHub Release from that
    changelog section.
 
