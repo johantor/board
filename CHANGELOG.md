@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - The README follows crew's structure: a pitch, a screenshot, *Why a board*, *Quick start*, and
-  *Updating and uninstalling*.
+  *Updating and uninstalling* (#3).
 
 ## [0.1.3] - 2026-10-24
 
