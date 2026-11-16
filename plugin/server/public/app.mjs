@@ -85,6 +85,57 @@ async function setArchived(c, on) {
   if (!res.ok) toast('Could not hide the card.');
 }
 
+async function setTitle(c, title) {
+  const res = await fetch('/api/rename', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Board-Token': token },
+    body: JSON.stringify({ sid: c.id, title }),
+  });
+  toast(res.ok ? 'Renamed. Claude Code takes the name at the session’s next prompt.' : 'Could not rename the session.');
+}
+
+// The card being renamed keeps its node while pushes arrive, so the field keeps
+// focus and what was typed. Ending the edit drops the node, so the next render rebuilds it.
+let editing = null;
+
+function endEdit(c, title) {
+  editing = null;
+  // Show the new name now; the server's push confirms it.
+  if (title !== undefined) c.title = title;
+  cardEls.delete(c.id);
+  render();
+  cardEls.get(c.id)?.node.querySelector('[data-action="rename"]')?.focus({ preventScroll: true });
+  if (title !== undefined) setTitle(c, title);
+}
+
+function startEdit(c, heading) {
+  if (editing) return;
+  editing = c.id;
+  const input = el('input', 'title-input');
+  input.value = c.title;
+  input.maxLength = 200;
+  input.setAttribute('aria-label', 'Session name');
+  input.placeholder = 'Name this session';
+  let done = false;
+  const finish = (save) => {
+    if (done) return;
+    done = true;
+    const title = input.value.trim();
+    endEdit(c, save && title && title !== c.title ? title : undefined);
+  };
+  input.addEventListener('click', (ev) => ev.stopPropagation());
+  input.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Enter' && ev.key !== 'Escape') return;
+    // Focus moves to the Rename button: the key must not press it too.
+    ev.preventDefault();
+    finish(ev.key === 'Enter');
+  });
+  input.addEventListener('blur', () => finish(true));
+  heading.replaceChildren(input);
+  input.focus();
+  input.select();
+}
+
 function matches(c, f) {
   if (!f.archived && c.archived) return false;
   if (f.repo && c.repo !== f.repo) return false;
@@ -143,6 +194,12 @@ function renderCard(c, t) {
   head.append(el('span', 'dot'), el('span', 'sr-only', STATE_LABEL[state]), time);
   const title = el('h3', 'title', c.title || c.id.slice(0, 8));
   title.id = titleId;
+  title.title = 'Click to rename';
+  // A click on the name renames; the Rename button is the keyboard path.
+  title.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    startEdit(c, title);
+  });
   node.append(head, title);
   if (c.repo || c.branch) {
     const chips = el('div', 'chips');
@@ -191,6 +248,7 @@ function renderCard(c, t) {
   const actions = el('div', 'actions');
   actions.append(
     button('Copy resume', 'primary', 'copy', () => copyResume(c), 'copy'),
+    button('Rename', '', 'rename', () => startEdit(c, title), 'pencil', true),
     more,
     button(c.archived ? 'Unhide' : 'Hide', '', 'archive', () => setArchived(c, !c.archived), c.archived ? 'eye' : 'eye-off', true),
   );
@@ -285,6 +343,7 @@ function cardEl(c, t) {
   // Everything the card shows except the relative time, which is patched in place.
   const key = JSON.stringify([c, expanded.has(c.id), isStale(c, t), isGone(c, t)]);
   let entry = cardEls.get(c.id);
+  if (entry && editing === c.id) return entry.node;
   if (!entry || entry.key !== key) {
     entry = { key, node: renderCard(c, t) };
     if (fresh.delete(c.id)) entry.node.classList.add('is-new');

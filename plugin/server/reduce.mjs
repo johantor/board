@@ -28,6 +28,7 @@ function cardFor(board, sid, ts) {
       id: sid,
       title: '',
       titleRank: 0,
+      pendingTitle: '',
       cwd: '',
       repo: '',
       branch: '',
@@ -56,9 +57,13 @@ function cardFor(board, sid, ts) {
   return c;
 }
 
-// The first prompt sticks; a newer /rename replaces an older one.
+// The first prompt sticks; a newer /rename replaces an older one. A title set on
+// the board holds until Claude Code reports it back: events of the old title are
+// still in flight until the title hook runs at the session's next prompt.
 function setTitle(c, title, rank) {
-  if (title && (rank > c.titleRank || rank === RANK.rename)) {
+  if (!title || (c.pendingTitle && title !== c.pendingTitle)) return;
+  if (title === c.pendingTitle) c.pendingTitle = '';
+  if (rank > c.titleRank || rank === RANK.rename) {
     c.title = title;
     c.titleRank = rank;
   }
@@ -137,6 +142,13 @@ export function apply(board, rec) {
   if (rec.e === 'History') return applyHistory(c, rec);
   if (rec.e === 'BoardArchive') {
     c.archived = rec.on !== false;
+    return;
+  }
+  if (rec.e === 'BoardRename') {
+    if (typeof rec.title !== 'string' || !rec.title) return;
+    c.title = rec.title;
+    c.titleRank = RANK.rename;
+    c.pendingTitle = rec.title;
     return;
   }
 

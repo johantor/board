@@ -44,7 +44,14 @@ not the shell, and nothing is pushed until the operator runs `/crew:pr`.
 
 Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users install.
 
-- `hooks/capture.sh` — the one hook, wired on 12 events in `hooks/hooks.json`, async on all but
+- `hooks/title.sh` — the title hook, on `SessionStart` and `UserPromptSubmit`, synchronous
+  (`timeout: 5`), since Claude Code ignores `sessionTitle` from an async hook. It starts Node
+  only when `<board dir>/titles/<session_id>` exists: a bash glob, with no fork, when no title
+  waits at all, else a regex for `session_id` (about 4 ms). A title for a session that never
+  prompts again would otherwise start Node on every prompt.
+  `server/title.mjs` (`takeTitle()`) prints the `sessionTitle` output and deletes the file;
+  `SessionStart` applies it only on `startup`, `resume` and `fork`, so a compact leaves it waiting.
+- `hooks/capture.sh` — the capture hook, wired on 12 events in `hooks/hooks.json`, async on all but
   `PermissionRequest` and `SessionEnd` (synchronous, `timeout: 5`: the first lands before its
   tool runs, the second before the process exits; `capture.test.sh` asserts the split). A Bash
   wrapper, so shellcheck covers the entry point; it runs `node server/capture.mjs` and always exits 0.
@@ -54,7 +61,9 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   several sessions then do not interleave. `gitInfo()` reads `.git/HEAD` as a file, no fork,
   and only a plain file of this user's (`readSmall`): a planted FIFO would block the read.
 - `server/reduce.mjs` — `apply(board, record)` is the fold. Record kinds: hook events, `History`
-  (backfill; fills gaps, never overrides a hook), `BoardArchive` (written by the server).
+  (backfill; fills gaps, never overrides a hook), `BoardArchive` and `BoardRename` (written by
+  the server). A `BoardRename` title stays `pendingTitle` until a record carries it back: events
+  with the old title are in flight until the title hook runs.
   A card keeps the session's own `turn` (`working`/`yourTurn`/`closed`, activity `doing`) apart
   from its `open` questions, keyed by who asked (`''` the session, `!error` a failed turn, else
   a subagent's `aid`) and by tool call: `capture.mjs` writes `call`, a hash of tool name and
@@ -76,8 +85,9 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   once), sent as `X-Board-Token`, or as `?t=` on `/api/stream` only (EventSource sets no
   header); never a cookie, which reaches every port on 127.0.0.1. The page takes `?t=` once into
   localStorage (origin-scoped, so per port). `isBoard` sends a nonce and checks the HMAC
-  `/api/health` returns, so the token never goes to a squatter on the port. `POST /api/archive` needs JSON and no foreign
-  `Origin`. `/api/stream` opens with a full `state` event and then sends changed `cards`; the
+  `/api/health` returns, so the token never goes to a squatter on the port. `POST /api/archive` and `/api/rename` need
+  JSON, no foreign `Origin`, and a known session id that matches `SID_RE` (`paths.mjs`), so a
+  rename's `titles/<sid>` file name has no separator. `/api/stream` opens with a full `state` event and then sends changed `cards`; the
   page loads from the stream alone, so no push falls between a snapshot and the subscribe.
 - `server/public/` — the page. `columns.mjs` (the time rules, `STALE_MS`, `GONE_MS`, and
   `byRecency`: age group, then session start, so busy cards keep their place) and

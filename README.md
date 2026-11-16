@@ -74,6 +74,7 @@ saved in the browser.
 | Repo, branch, activity | Where the session runs, the latest activity, and how long ago it happened. |
 | **Copy resume** (or a click on the card) | Copies `cd '<dir>'; claude --resume <id>`. The quotes are single, so a folder name cannot run code when you paste it. A folder name with a character outside letters, digits and plain ASCII punctuation (a quote of any kind, a tab) gets no `cd`, and the board says so. |
 | **More** (the chevron) | The last reply, the last tool calls, the subagents, and the session's mode and end reason. |
+| **Rename** (the pencil, or a click on the title) | Names the session, as `/rename` does. Enter saves and Esc cancels. The card shows the name at once; Claude Code takes it at the session's next prompt, or when you resume a closed session. |
 | **Hide** (the crossed eye) | Takes the card off the board; the **Hidden** filter shows it again. Hide only adds a line to the board's log: the session and its transcript stay as they are. |
 
 **Subagents are not cards.** A subagent runs inside its parent session, so it shows on that
@@ -93,7 +94,10 @@ badge.
    prompt shows), and `SessionEnd`, so its line lands before Claude Code exits. None fails a
    session: no Node, a bad payload or a full disk all exit 0.
 2. The server replays that log into cards and tails it every second. It writes to the same file
-   only when you hide a card.
+   only when you hide or rename a card. A rename also waits in `~/.claude/board/titles/` until
+   `hooks/title.sh` hands it to Claude Code. That hook runs in the foreground before each prompt
+   and at session start, because Claude Code takes a title only from a foreground hook. It
+   starts Node only while a title waits.
 3. On start, and every 5 minutes, it reads the session transcripts under `~/.claude/projects`
    (only the first and last 256 KiB of each). That fills the board with sessions from before the
    plugin.
@@ -128,7 +132,8 @@ is sent anywhere.
   on 127.0.0.1.
 - **No token to a squatter.** `/board:open` checks for a running board by having it sign a random
   value with the token, so a program squatting on the port never receives the token.
-- **Same-origin writes.** Hiding a card takes a JSON request from the board's own origin.
+- **Same-origin writes.** Hiding or renaming a card takes a JSON request from the board's own
+  origin.
 - **Short lines.** The log is written with mode 600, and each line keeps at most the first 200
   characters of a prompt and 300 of a reply.
 - **No fork for git.** Repo and branch come from `.git/HEAD`, read as a file. The hook skips a
@@ -164,6 +169,8 @@ Release notes: [CHANGELOG](CHANGELOG.md).
 - Esc during a turn fires no `Stop`. The card moves to Your turn when Claude Code reports the
   session idle, about a minute later.
 - The event log grows without bound, about 300 bytes per tool call. Delete it to start over.
+- A rename from the board reaches Claude Code only at the session's next prompt: no hook fires
+  while a session waits. Until then it wins over a `/rename` typed in the terminal.
 - The transcript format is not documented. A Claude Code update can break the history read; the
   hooks keep working.
 - Autostart fails silently when another program holds the port. `/board:open` reports it.
