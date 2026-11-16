@@ -2,7 +2,7 @@
 
 ## Phosphor Icons
 
-The icons in `server/public/index.html` are path data from
+The icons in `server/public/index.html` and the app icon `server/public/icon.svg` are path data from
 [Phosphor Icons](https://phosphoricons.com) 2.1.1 (`@phosphor-icons/core`, regular weight).
 
 ```text

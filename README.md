@@ -44,6 +44,11 @@ It starts the server in the background and opens `http://127.0.0.1:7428/?t=<toke
 keeps other users on the machine out. The page moves it into the browser's local storage for that
 port, so a bookmark of `http://127.0.0.1:7428/` works after that.
 
+To give the board its own window and taskbar icon, install it as an app: in Edge or Chrome, open
+the browser menu and pick **Install** (Chrome: **Cast, save, and share** → **Install page as app**).
+The app opens `http://127.0.0.1:7428/`. It shows the board only while the server runs, so start the
+server with `/board:open` first.
+
 Press `/` to search. The theme follows the browser until you pick Light or Dark; the choice is
 saved in the browser.
 
