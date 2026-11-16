@@ -216,7 +216,14 @@ function startServer(opts) {
   // Filled once the port is bound: with --port 0 it is known only then.
   const allowedHosts = new Set();
   const allowedOrigins = new Set();
-  const types = { '.html': 'text/html; charset=utf-8', '.mjs': 'text/javascript', '.js': 'text/javascript', '.css': 'text/css' };
+  const types = {
+    '.html': 'text/html; charset=utf-8',
+    '.mjs': 'text/javascript',
+    '.js': 'text/javascript',
+    '.css': 'text/css',
+    '.svg': 'image/svg+xml',
+    '.webmanifest': 'application/manifest+json',
+  };
   // The page, code and style hold no session data, so they need no token.
   const statics = new Map([
     ['/', 'index.html'],
@@ -225,6 +232,8 @@ function startServer(opts) {
     ['/resume.mjs', 'resume.mjs'],
     ['/theme.js', 'theme.js'],
     ['/board.css', 'board.css'],
+    ['/manifest.webmanifest', 'manifest.webmanifest'],
+    ['/icon.svg', 'icon.svg'],
   ]);
 
   function send(res, status, body, type = 'application/json') {
