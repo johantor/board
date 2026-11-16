@@ -25,6 +25,11 @@ export function eventsFile() {
   return path.join(boardDir(), 'events.jsonl');
 }
 
+// Present only after `/board:autostart on`: SessionStart then starts the server.
+export function autostartFile() {
+  return path.join(boardDir(), 'autostart');
+}
+
 export function projectsDir() {
   const config = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
   return path.join(config, 'projects');

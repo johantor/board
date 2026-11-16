@@ -90,6 +90,10 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   The palette and fonts follow the crew site, `docs/style.css` in `johantor/crew`. `app.mjs` rebuilds a card only when its content changes and puts focus back on
   the same button (`data-action`): a push arrives every second while a session works.
 - `commands/open.md` — `/board:open`, runs `board.mjs --detach --open`.
+- `commands/autostart.md` — `/board:autostart on|off`, runs `board.mjs --autostart`, which
+  writes or removes `<board dir>/autostart`. While that file exists, `capture.mjs` spawns
+  `board.mjs` detached on `SessionStart`: the hook's one fork, opt-in and once per session. The
+  child exits when a board already answers. Never written to Claude Code's settings.
 - `tests/capture.test.sh` — the hook end to end, then `node --test tests/*.test.mjs` (reducer,
   columns, history, tail, server). Node is required; a missing one fails the suite.
 

@@ -47,7 +47,11 @@ port, so a bookmark of `http://127.0.0.1:7428/` works after that.
 To give the board its own window and taskbar icon, install it as an app: in Edge or Chrome, open
 the browser menu and pick **Install** (Chrome: **Cast, save, and share** → **Install page as app**).
 The app opens `http://127.0.0.1:7428/`. It shows the board only while the server runs, so start the
-server with `/board:open` first.
+server with `/board:open` first, or turn on autostart.
+
+To have the server start with each Claude Code session, run `/board:autostart on`. It is off
+until you turn it on, and `/board:autostart off` turns it off again. The setting is one file,
+`~/.claude/board/autostart`: nothing else changes, your Claude Code settings included.
 
 Press `/` to search. The theme follows the browser until you pick Light or Dark; the choice is
 saved in the browser.
@@ -98,12 +102,14 @@ badge.
 
 ```bash
 node <plugin dir>/server/board.mjs [--port 7428] [--days 30] [--detach] [--open]
+node <plugin dir>/server/board.mjs --autostart on|off
 ```
 
 | Setting | Default | Effect |
 |---|---|---|
 | `--port`, `CLAUDE_BOARD_PORT` | `7428` | The server's port. The hooks do not use it. |
 | `--days` | `30` | How far back the board loads sessions. |
+| `--autostart` | off | `on` starts the server at each session start, on `CLAUDE_BOARD_PORT`. |
 | `CLAUDE_BOARD_DIR` | `~/.claude/board` | Where the event log and the token live. Set it for the hooks too. |
 | `CLAUDE_CONFIG_DIR` | `~/.claude` | Where the transcripts are read from. |
 
@@ -160,6 +166,7 @@ Release notes: [CHANGELOG](CHANGELOG.md).
 - The event log grows without bound, about 300 bytes per tool call. Delete it to start over.
 - The transcript format is not documented. A Claude Code update can break the history read; the
   hooks keep working.
+- Autostart fails silently when another program holds the port. `/board:open` reports it.
 - A session that ran while the plugin was off shows only its history: title, repo and last reply.
 - The `/board:open` check that a port holds your board can be fooled by another local user who
   relays it from their port to your board on a second port; `--open` would then open their page
