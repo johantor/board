@@ -359,6 +359,15 @@ test('the server serves state, refuses foreign hosts, and archives', async (t) =
 
   assert.match(page.headers.get('content-security-policy'), /default-src 'self'/);
 
+  // The page installs as an app: the manifest and its icon load without the token.
+  const manifest = await fetch(`${base}/manifest.webmanifest`);
+  assert.equal(manifest.headers.get('content-type'), 'application/manifest+json');
+  const app = await manifest.json();
+  assert.equal(app.start_url, '/', 'the token stays out of the installed app: the page keeps it in localStorage');
+  const icon = await fetch(`${base}${app.icons[0].src}`);
+  assert.equal(icon.status, 200);
+  assert.equal(icon.headers.get('content-type'), 'image/svg+xml');
+
   // DNS rebinding: a request naming another host is refused.
   const http = await import('node:http');
   const foreign = await new Promise((resolve) => {

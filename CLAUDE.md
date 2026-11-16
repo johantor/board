@@ -85,6 +85,8 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   CSP is `default-src 'self'`: no inline script or style, so `theme.js` is a file, loaded
   before paint, and the icons are an inline SVG sprite in `index.html` that `icon()` uses: Phosphor
   regular paths (MIT, `THIRD-PARTY-NOTICES.md`), so a new icon is copied from `@phosphor-icons/core`.
+  `manifest.webmanifest` and `icon.svg` (Phosphor `kanban`) make the page installable as an app;
+  `start_url` is `/`, since the page keeps the token in localStorage.
   The palette and fonts follow the crew site, `docs/style.css` in `johantor/crew`. `app.mjs` rebuilds a card only when its content changes and puts focus back on
   the same button (`data-action`): a push arrives every second while a session works.
 - `commands/open.md` — `/board:open`, runs `board.mjs --detach --open`.
