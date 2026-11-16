@@ -74,8 +74,6 @@ let editing = null;
 
 function endEdit(c, title) {
   editing = null;
-  // Show the new name now; the server's push confirms it.
-  if (title !== undefined) c.title = title;
   cardEls.delete(c.id);
   render();
   cardEls.get(c.id)?.node.querySelector('[data-action="rename"]')?.focus({ preventScroll: true });

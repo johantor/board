@@ -15,14 +15,20 @@ export function takeTitle(p) {
   const e = p.hook_event_name;
   if (e !== 'UserPromptSubmit' && !(e === 'SessionStart' && STARTS.has(p.source))) return '';
   const file = path.join(titlesDir(), p.session_id);
+  // Claim the file by renaming it first: a rename on the board in the meantime
+  // writes a new file, which waits for the next prompt instead of being lost.
+  // A name with a dot never matches SID_RE, so no session takes a claimed file.
+  const claimed = `${file}.${process.pid}.taken`;
   let title;
   try {
     // A plain file only: the board writes one, and a FIFO would hang the prompt.
     if (!fs.lstatSync(file).isFile()) return '';
-    title = fs.readFileSync(file, 'utf8').trim();
-    fs.rmSync(file);
+    fs.renameSync(file, claimed);
+    title = fs.readFileSync(claimed, 'utf8').trim();
   } catch {
     return '';
+  } finally {
+    fs.rmSync(claimed, { force: true });
   }
   if (!title) return '';
   return JSON.stringify({ hookSpecificOutput: { hookEventName: e, sessionTitle: title } });

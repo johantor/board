@@ -62,7 +62,8 @@ function cardFor(board, sid, ts) {
 // still in flight until the title hook runs at the session's next prompt.
 function setTitle(c, title, rank) {
   if (!title || (c.pendingTitle && title !== c.pendingTitle)) return;
-  if (title === c.pendingTitle) c.pendingTitle = '';
+  // Only Claude Code's own title confirms it: a first prompt with the same text does not.
+  if (rank === RANK.rename && title === c.pendingTitle) c.pendingTitle = '';
   if (rank > c.titleRank || rank === RANK.rename) {
     c.title = title;
     c.titleRank = rank;

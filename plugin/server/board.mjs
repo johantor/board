@@ -56,7 +56,8 @@ export function loadToken() {
 
 // One line, as /rename takes it, and as long as a clipped prompt.
 export function cleanTitle(text) {
-  return text.replace(/[\s\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, 200);
+  // Trim after the cut too: the hook trims, and the pending title must match what it hands over.
+  return text.replace(/[\s\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, 200).trim();
 }
 
 function sameToken(given, token) {
@@ -230,7 +231,10 @@ function startServer(opts) {
     if (!title) return { status: 400, error: 'title required' };
     const dir = titlesDir();
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-    fs.writeFileSync(path.join(dir, msg.sid), title, { mode: 0o600 });
+    // Write, then rename into place: the hook never claims a half-written title.
+    const tmp = path.join(dir, `${msg.sid}.tmp`);
+    fs.writeFileSync(tmp, title, { mode: 0o600 });
+    fs.renameSync(tmp, path.join(dir, msg.sid));
     append({ e: 'BoardRename', sid: msg.sid, title });
   }
 

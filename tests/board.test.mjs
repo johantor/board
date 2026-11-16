@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { apply, createBoard } from '../plugin/server/reduce.mjs';
 import { byRecency, columnOf, isGone, isStale, STALE_MS } from '../plugin/server/public/columns.mjs';
 import { readSession, scanHistory } from '../plugin/server/history.mjs';
-import { createTail, parseArgs, proof } from '../plugin/server/board.mjs';
+import { cleanTitle, createTail, parseArgs, proof } from '../plugin/server/board.mjs';
 import { clip, distill, summarizeTool, where } from '../plugin/server/capture.mjs';
 import { takeTitle } from '../plugin/server/title.mjs';
 import { resumeCommand } from '../plugin/server/public/resume.mjs';
@@ -104,6 +104,18 @@ test('a board rename holds until Claude Code reports it back', () => {
     { e: 'UserPromptSubmit', prompt: 'q', title: 'later' },
   ]);
   assert.equal(d.title, 'later');
+  // A first prompt that happens to read like the new title confirms nothing.
+  const e = run([
+    { e: 'BoardRename', title: 'continue' },
+    { e: 'UserPromptSubmit', prompt: 'continue', title: 'old' },
+    { e: 'PreToolUse', tool: 'Bash ls', title: 'old' },
+  ]);
+  assert.equal(e.title, 'continue');
+});
+
+test('a cut title is trimmed, as the title hook hands it over', () => {
+  assert.equal(cleanTitle(`${'x'.repeat(199)} yz`), 'x'.repeat(199));
+  assert.equal(cleanTitle(' a\n\tb\u0007 '), 'a b');
 });
 
 test('the title hook hands a waiting title over once, on the events that apply it', { skip: process.platform === 'win32' }, () => {
@@ -123,6 +135,7 @@ test('the title hook hands a waiting title over once, on the events that apply i
       hookSpecificOutput: { hookEventName: 'UserPromptSubmit', sessionTitle: 'checkout-fix' },
     });
     assert.equal(takeTitle({ session_id: sid, hook_event_name: 'UserPromptSubmit' }), '', 'handed over once');
+    assert.deepEqual(fs.readdirSync(titles), [], 'the claimed file is gone too');
     // A FIFO planted as the title file would hang the prompt.
     spawnSync('mkfifo', [path.join(titles, sid)]);
     assert.equal(takeTitle({ session_id: sid, hook_event_name: 'UserPromptSubmit' }), '');

@@ -21,14 +21,19 @@ export const token = (() => {
 
 export const stream = () => new EventSource(`/api/stream?t=${encodeURIComponent(token)}`);
 
-// Resolves to whether the server took the change; a push then shows it.
+// Resolves to whether the server took the change; a push then shows it, so the
+// page never shows a change the server did not keep.
 async function post(path, body) {
-  const res = await fetch(path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Board-Token': token },
-    body: JSON.stringify(body),
-  });
-  return res.ok;
+  try {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Board-Token': token },
+      body: JSON.stringify(body),
+    });
+    return res.ok;
+  } catch {
+    return false; // The server is down: the caller reports it.
+  }
 }
 
 export const archive = (sid, on) => post('/api/archive', { sid, on });
