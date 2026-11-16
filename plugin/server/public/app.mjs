@@ -1,5 +1,6 @@
 import { byRecency, COLUMNS, columnOf, isGone, isStale } from './columns.mjs';
 import { resumeCommand } from './resume.mjs';
+import * as api from './api.mjs';
 
 // Earlier shows a week; the server holds more, which search reaches.
 const EARLIER_DAYS = 7;
@@ -11,24 +12,6 @@ let skew = 0; // server clock minus browser clock
 
 const $ = (id) => document.getElementById(id);
 const now = () => Date.now() + skew;
-
-// The printed URL carries the token once. localStorage is scoped to this port's
-// origin, unlike a cookie, so a bookmark of the bare URL keeps working and no
-// other service on 127.0.0.1 ever sees the token.
-const token = (() => {
-  const url = new URL(location.href);
-  const given = url.searchParams.get('t');
-  if (given) {
-    url.searchParams.delete('t');
-    history.replaceState(null, '', url);
-  }
-  try {
-    if (given) localStorage.setItem('board-token', given);
-    return given || localStorage.getItem('board-token') || '';
-  } catch {
-    return given || '';
-  }
-})();
 
 function el(tag, cls, text) {
   const node = document.createElement(tag);
@@ -77,21 +60,12 @@ async function copyResume(c) {
 }
 
 async function setArchived(c, on) {
-  const res = await fetch('/api/archive', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Board-Token': token },
-    body: JSON.stringify({ sid: c.id, on }),
-  });
-  if (!res.ok) toast('Could not hide the card.');
+  if (!(await api.archive(c.id, on))) toast('Could not hide the card.');
 }
 
 async function setTitle(c, title) {
-  const res = await fetch('/api/rename', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Board-Token': token },
-    body: JSON.stringify({ sid: c.id, title }),
-  });
-  toast(res.ok ? 'Renamed. Claude Code takes the name at the session’s next prompt.' : 'Could not rename the session.');
+  const ok = await api.rename(c.id, title);
+  toast(ok ? 'Renamed. Claude Code takes the name at the session’s next prompt.' : 'Could not rename the session.');
 }
 
 // The card being renamed keeps its node while pushes arrive, so the field keeps
@@ -402,11 +376,11 @@ function render() {
 function connect() {
   const live = $('live');
   // Every (re)connect starts with a full `state` event, so nothing between snapshot and stream is lost.
-  if (!token) {
+  if (!api.token) {
     live.textContent = 'no token: open the board with /board:open';
     return;
   }
-  const es = new EventSource(`/api/stream?t=${encodeURIComponent(token)}`);
+  const es = api.stream();
   es.onopen = () => {
     live.textContent = 'live';
     live.classList.add('on');

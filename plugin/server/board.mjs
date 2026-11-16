@@ -249,6 +249,7 @@ function startServer(opts) {
   const statics = new Map([
     ['/', 'index.html'],
     ['/app.mjs', 'app.mjs'],
+    ['/api.mjs', 'api.mjs'],
     ['/columns.mjs', 'columns.mjs'],
     ['/resume.mjs', 'resume.mjs'],
     ['/theme.js', 'theme.js'],
