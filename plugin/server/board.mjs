@@ -1,6 +1,7 @@
 // The board server: folds history and the hook log into cards, serves the page,
 // and pushes changed cards over SSE. Binds 127.0.0.1 only: transcripts hold
 // client code. Usage: node board.mjs [--port N] [--days N] [--detach] [--open]
+//                     node board.mjs --autostart on|off
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -8,7 +9,7 @@ import net from 'node:net';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { boardDir, eventsFile, isMain, projectsDir } from './paths.mjs';
+import { autostartFile, boardDir, eventsFile, isMain, projectsDir } from './paths.mjs';
 import { apply, createBoard, snapshot } from './reduce.mjs';
 import { scanHistory } from './history.mjs';
 
@@ -27,8 +28,10 @@ export function parseArgs(argv) {
     else if (a === '--open') opts.open = true;
     else if (a === '--port') opts.port = Number(argv[++i]);
     else if (a === '--days') opts.days = Number(argv[++i]);
+    else if (a === '--autostart') opts.autostart = argv[++i];
     else throw new Error(`unknown option: ${a}`);
   }
+  if ('autostart' in opts && !['on', 'off'].includes(opts.autostart)) throw new Error('--autostart takes on or off');
   // Port 0 asks the OS for a free port (the tests use it); a detached board needs a known one.
   if (!Number.isInteger(opts.port) || opts.port < 0 || opts.port > 65535) throw new Error('--port takes 0-65535');
   if (opts.detach && opts.port === 0) throw new Error('--detach needs a fixed --port');
@@ -354,10 +357,23 @@ const boardUrl = (opts) => `http://${HOST}:${opts.port}/?t=${opts.token}`;
 
 const PORT_IN_USE = (port) => `Port ${port} is in use. Pass --port or set CLAUDE_BOARD_PORT.`;
 
+function setAutostart(on) {
+  const file = autostartFile();
+  if (on) {
+    fs.mkdirSync(boardDir(), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(file, '');
+    console.log('Autostart is on: the board starts with each Claude Code session.');
+  } else {
+    fs.rmSync(file, { force: true });
+    console.log('Autostart is off: start the board with /board:open.');
+  }
+}
+
 async function main() {
   let opts;
   try {
     opts = parseArgs(process.argv.slice(2));
+    if (opts.autostart) return setAutostart(opts.autostart === 'on');
     opts.token = loadToken();
   } catch (err) {
     console.error(err.message);

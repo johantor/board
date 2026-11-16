@@ -292,6 +292,8 @@ test('parseArgs rejects what it does not know', () => {
   assert.throws(() => parseArgs(['--port', 'x']));
   assert.throws(() => parseArgs(['--days', '0']));
   assert.throws(() => parseArgs(['--serve']));
+  assert.throws(() => parseArgs(['--autostart', 'yes']));
+  assert.equal(parseArgs(['--autostart', 'off']).autostart, 'off');
 });
 
 async function waitFor(fn, ms = 5000) {
@@ -443,6 +445,47 @@ test('a squatter on the port reads as busy and never sees the token', async (t) 
   const token = fs.readFileSync(path.join(boardDir, 'token'), 'utf8').trim();
   assert.ok(seen.length > 0, 'the probe reached the squatter');
   assert.ok(seen.every((s) => !s.includes(token)), 'the token crossed to the squatter');
+});
+
+// The autostarted server is detached from the hook, so the test finds it by its board dir.
+test('a session start runs the board only after autostart is on', { skip: process.platform !== 'linux' }, async (t) => {
+  const net = await import('node:net');
+  const port = await new Promise((resolve) => {
+    const probe = net.createServer().listen(0, '127.0.0.1', () => {
+      const p = probe.address().port;
+      probe.close(() => resolve(p));
+    });
+  });
+  const boardDir = tmp();
+  const env = { ...process.env, CLAUDE_BOARD_DIR: boardDir, CLAUDE_BOARD_PORT: String(port), CLAUDE_CONFIG_DIR: tmp() };
+  const board = path.join(HERE, '../plugin/server/board.mjs');
+  const sessionStart = () =>
+    spawnSync(process.execPath, [path.join(HERE, '../plugin/server/capture.mjs')], {
+      env,
+      input: JSON.stringify({ session_id: 's', hook_event_name: 'SessionStart', source: 'startup' }),
+    });
+  const up = async () => (await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(300) })).ok;
+  t.after(() => {
+    for (const pid of fs.readdirSync('/proc').filter((d) => /^\d+$/.test(d))) {
+      try {
+        if (fs.readFileSync(`/proc/${pid}/environ`, 'utf8').includes(`CLAUDE_BOARD_DIR=${boardDir}\0`)) process.kill(Number(pid));
+      } catch {
+        // Gone already, or not ours to read.
+      }
+    }
+  });
+
+  sessionStart();
+  await new Promise((r) => setTimeout(r, 1500));
+  await assert.rejects(up(), 'off by default: no server without the opt-in');
+
+  assert.equal(spawnSync(process.execPath, [board, '--autostart', 'on'], { env }).status, 0);
+  assert.ok(fs.existsSync(path.join(boardDir, 'autostart')));
+  assert.equal(sessionStart().status, 0);
+  await waitFor(up);
+
+  assert.equal(spawnSync(process.execPath, [board, '--autostart', 'off'], { env }).status, 0);
+  assert.ok(!fs.existsSync(path.join(boardDir, 'autostart')));
 });
 
 test('the resume command never lets a folder name run code', () => {

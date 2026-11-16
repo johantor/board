@@ -4,7 +4,9 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { boardDir, eventsFile, isMain } from './paths.mjs';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { autostartFile, boardDir, eventsFile, isMain } from './paths.mjs';
 
 // One line stays well under 4 KiB so concurrent appends from several sessions do
 // not interleave; the clip limits below keep it there.
@@ -208,12 +210,22 @@ function readStdin() {
   }
 }
 
+// Opt-in autostart: board.mjs exits at once when a board already answers, so a
+// second session start costs one short-lived process and no wait in the hook.
+function startBoard() {
+  const server = path.join(path.dirname(fileURLToPath(import.meta.url)), 'board.mjs');
+  const child = spawn(process.execPath, [server], { detached: true, stdio: 'ignore', windowsHide: true });
+  child.on('error', () => {});
+  child.unref();
+}
+
 export function main() {
   try {
     const rec = distill(JSON.parse(readStdin()));
     if (!rec) return;
     fs.mkdirSync(boardDir(), { recursive: true, mode: 0o700 });
     fs.appendFileSync(eventsFile(), `${JSON.stringify(rec)}\n`, { mode: 0o600 });
+    if (rec.e === 'SessionStart' && fs.existsSync(autostartFile())) startBoard();
   } catch {
     // The board is a view; a lost event must never disturb the session.
   }
