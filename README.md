@@ -139,10 +139,8 @@ is sent anywhere.
   value with the token, so a program squatting on the port never receives the token.
 - **Same-origin writes.** Hiding or renaming a card, and Allow or Deny, take a JSON request from
   the board's own origin.
-- **Allow is a tool approval.** Anyone with the token can approve tool use, as at your terminal:
-  keep `~/.claude/board/token` private. The server takes an answer only for a prompt the card
-  shows as open and whose hook still waits, so a late click never approves a later call.
-  Claude Code's deny and ask rules still apply over an Allow.
+- **Allow is a tool approval**, as at the terminal. It counts only for a prompt that is still
+  open and waiting, so a late click never approves a later call, and your deny rules still apply.
 - **Short lines.** The log is written with mode 600, and each line keeps at most the first 200
   characters of a prompt and 300 of a reply.
 - **No fork for git.** Repo and branch come from `.git/HEAD`, read as a file. The hook skips a
