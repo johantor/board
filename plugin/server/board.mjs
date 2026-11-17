@@ -9,7 +9,7 @@ import net from 'node:net';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { autostartFile, boardDir, eventsFile, isMain, projectsDir } from './paths.mjs';
+import { autostartFile, boardDir, eventsFile, isMain, projectsDir, SID_RE, titlesDir } from './paths.mjs';
 import { apply, createBoard, snapshot } from './reduce.mjs';
 import { scanHistory } from './history.mjs';
 
@@ -52,6 +52,12 @@ export function loadToken() {
   const token = fs.readFileSync(file, 'utf8').trim();
   if (!/^[0-9a-f]{48}$/.test(token)) throw new Error(`${file} is not a board token; delete it and start again`);
   return token;
+}
+
+// One line, as /rename takes it, and as long as a clipped prompt.
+export function cleanTitle(text) {
+  // Trim after the cut too: the hook trims, and the pending title must match what it hands over.
+  return text.replace(/[\s\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, 200).trim();
 }
 
 function sameToken(given, token) {
@@ -210,10 +216,26 @@ function startServer(opts) {
     }, 300);
   }
 
-  function archive(sid, on) {
+  function append(rec) {
     fs.mkdirSync(boardDir(), { recursive: true, mode: 0o700 });
-    fs.appendFileSync(file, `${JSON.stringify({ v: 1, ts: Date.now(), e: 'BoardArchive', sid, on })}\n`, { mode: 0o600 });
+    fs.appendFileSync(file, `${JSON.stringify({ v: 1, ts: Date.now(), ...rec })}\n`, { mode: 0o600 });
     pump();
+  }
+
+  const archive = (msg) => append({ e: 'BoardArchive', sid: msg.sid, on: msg.on !== false });
+
+  // The title waits in titles/<sid> for the session's next prompt: the title hook
+  // hands it to Claude Code then (CLAUDE.md, Map). The log record shows it at once.
+  function rename(msg) {
+    const title = typeof msg.title === 'string' ? cleanTitle(msg.title) : '';
+    if (!title) return { status: 400, error: 'title required' };
+    const dir = titlesDir();
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    // Write, then rename into place: the hook never claims a half-written title.
+    const tmp = path.join(dir, `${msg.sid}.tmp`);
+    fs.writeFileSync(tmp, title, { mode: 0o600 });
+    fs.renameSync(tmp, path.join(dir, msg.sid));
+    append({ e: 'BoardRename', sid: msg.sid, title });
   }
 
   // Filled once the port is bound: with --port 0 it is known only then.
@@ -231,6 +253,7 @@ function startServer(opts) {
   const statics = new Map([
     ['/', 'index.html'],
     ['/app.mjs', 'app.mjs'],
+    ['/api.mjs', 'api.mjs'],
     ['/columns.mjs', 'columns.mjs'],
     ['/resume.mjs', 'resume.mjs'],
     ['/theme.js', 'theme.js'],
@@ -285,7 +308,8 @@ function startServer(opts) {
       req.on('close', () => clients.delete(res));
       return;
     }
-    if (req.method === 'POST' && url.pathname === '/api/archive') {
+    const action = req.method === 'POST' && { '/api/archive': archive, '/api/rename': rename }[url.pathname];
+    if (action) {
       // JSON only, from this origin: a cross-site form cannot send it without a preflight we never answer.
       const origin = req.headers.origin;
       if ((origin && !allowedOrigins.has(origin)) || !String(req.headers['content-type']).startsWith('application/json')) {
@@ -303,15 +327,18 @@ function startServer(opts) {
         } catch {
           return send(res, 400, { error: 'bad json' });
         }
-        if (!msg || typeof msg !== 'object' || typeof msg.sid !== 'string' || !board.cards.has(msg.sid)) {
+        // A known session id is also a safe file name for rename: SID_RE has no separators.
+        if (!msg || typeof msg !== 'object' || typeof msg.sid !== 'string' || !SID_RE.test(msg.sid) || !board.cards.has(msg.sid)) {
           return send(res, 404, { error: 'no such session' });
         }
         // This callback runs after handle() returned: its try/catch does not cover a full disk here.
+        let refused;
         try {
-          archive(msg.sid, msg.on !== false);
+          refused = action(msg);
         } catch (err) {
           return send(res, 500, { error: err.message });
         }
+        if (refused) return send(res, refused.status, { error: refused.error });
         send(res, 200, { ok: true });
       });
       return;

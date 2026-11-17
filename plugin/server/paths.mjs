@@ -30,6 +30,15 @@ export function autostartFile() {
   return path.join(boardDir(), 'autostart');
 }
 
+// A title set on the board waits here, one file per session, until the title hook
+// hands it to Claude Code.
+export function titlesDir() {
+  return path.join(boardDir(), 'titles');
+}
+
+// A session id that is also a safe file name: no separator, no dot.
+export const SID_RE = /^[A-Za-z0-9_-]{1,128}$/;
+
 export function projectsDir() {
   const config = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
   return path.join(config, 'projects');

@@ -113,6 +113,34 @@ else
   _fail "every other board hook must be async"
 fi
 
+# The title hook prints nothing while no title waits, and the title once when one does.
+TITLE="title.sh"
+assert_allow "no title waiting" "$TITLE" '{"session_id":"t1","hook_event_name":"UserPromptSubmit","prompt":"hi"}'
+if [ -z "$_stdout" ]; then _pass; else _fail "no title waiting: expected no output, got $_stdout"; fi
+mkdir -p "$CLAUDE_BOARD_DIR/titles"
+printf 'checkout-fix' > "$CLAUDE_BOARD_DIR/titles/t1"
+assert_allow "title waiting" "$TITLE" '{"session_id":"t1","hook_event_name":"UserPromptSubmit","prompt":"hi"}'
+if jq -e '.hookSpecificOutput == {hookEventName: "UserPromptSubmit", sessionTitle: "checkout-fix"}' >/dev/null 2>&1 <<<"$_stdout"; then
+  _pass
+else
+  _fail "title waiting: expected the sessionTitle output, got: ${_stdout:-nothing}"
+fi
+if [ ! -e "$CLAUDE_BOARD_DIR/titles/t1" ]; then _pass; else _fail "the title file stays after the handover"; fi
+printf 'x' > "$CLAUDE_BOARD_DIR/titles/t2"
+assert_allow "title, bad JSON" "$TITLE" 'not json'
+# Another session's title waits for that session; a prompt that names it does not take it.
+assert_allow "other session's title" "$TITLE" \
+  "$(jq -nc '{session_id:"t1", hook_event_name:"UserPromptSubmit", prompt:"{\"session_id\":\"t2\"}"}')"
+if [ -z "$_stdout" ] && [ -e "$CLAUDE_BOARD_DIR/titles/t2" ]; then _pass; else _fail "t1 took t2's title: ${_stdout:-file gone}"; fi
+rm -f "$CLAUDE_BOARD_DIR/titles/t2"
+
+# Claude Code ignores sessionTitle from an async hook: the title hook runs in the foreground.
+if jq -e '[.hooks[][] .hooks[] | select(.command | endswith("/title.sh"))] | length == 2 and all(.async != true and (.timeout | type == "number"))' "$wiring" >/dev/null; then
+  _pass
+else
+  _fail "title.sh must run in the foreground with a timeout on SessionStart and UserPromptSubmit"
+fi
+
 # The reducer, history backfill and server have their own Node suite.
 if node --test "$(dirname "${BASH_SOURCE[0]}")"/*.test.mjs >"$FIXTURE_ROOT/node-test.log" 2>&1; then
   _pass

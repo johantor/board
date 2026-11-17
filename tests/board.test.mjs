@@ -10,8 +10,9 @@ import { fileURLToPath } from 'node:url';
 import { apply, createBoard } from '../plugin/server/reduce.mjs';
 import { byRecency, columnOf, isGone, isStale, STALE_MS } from '../plugin/server/public/columns.mjs';
 import { readSession, scanHistory } from '../plugin/server/history.mjs';
-import { createTail, parseArgs, proof } from '../plugin/server/board.mjs';
+import { cleanTitle, createTail, parseArgs, proof } from '../plugin/server/board.mjs';
 import { clip, distill, summarizeTool, where } from '../plugin/server/capture.mjs';
+import { takeTitle } from '../plugin/server/title.mjs';
 import { resumeCommand } from '../plugin/server/public/resume.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -82,6 +83,66 @@ test('a /rename title beats the first prompt, and the first prompt sticks', () =
     { e: 'UserPromptSubmit', prompt: 'second' },
   ]);
   assert.equal(d.title, 'checkout-fix');
+});
+
+test('a board rename holds until Claude Code reports it back', () => {
+  const c = run([
+    { e: 'UserPromptSubmit', prompt: 'first', title: 'old' },
+    { e: 'BoardRename', title: 'new' },
+    // Events of the old title are still in flight until the title hook runs.
+    { e: 'PreToolUse', tool: 'Bash ls', title: 'old' },
+  ]);
+  assert.equal(c.title, 'new');
+  const board = createBoard();
+  apply(board, { v: 1, ts: 1, sid: 's', e: 'BoardRename', title: 'new' });
+  apply(board, { v: 1, ts: 2, sid: 's', e: 'History', rename: 'old' });
+  assert.equal(board.cards.get('s').title, 'new', 'a history rescan does not undo it');
+  // Once the session reports the new title, a later /rename wins again.
+  const d = run([
+    { e: 'BoardRename', title: 'new' },
+    { e: 'UserPromptSubmit', prompt: 'p', title: 'new' },
+    { e: 'UserPromptSubmit', prompt: 'q', title: 'later' },
+  ]);
+  assert.equal(d.title, 'later');
+  // A first prompt that happens to read like the new title confirms nothing.
+  const e = run([
+    { e: 'BoardRename', title: 'continue' },
+    { e: 'UserPromptSubmit', prompt: 'continue', title: 'old' },
+    { e: 'PreToolUse', tool: 'Bash ls', title: 'old' },
+  ]);
+  assert.equal(e.title, 'continue');
+});
+
+test('a cut title is trimmed, as the title hook hands it over', () => {
+  assert.equal(cleanTitle(`${'x'.repeat(199)} yz`), 'x'.repeat(199));
+  assert.equal(cleanTitle(' a\n\tb\u0007 '), 'a b');
+});
+
+test('the title hook hands a waiting title over once, on the events that apply it', { skip: process.platform === 'win32' }, () => {
+  const dir = tmp();
+  const prev = process.env.CLAUDE_BOARD_DIR;
+  process.env.CLAUDE_BOARD_DIR = dir;
+  try {
+    const sid = '0f5a2c1e-1111-4abc-9def-123456789abc';
+    const titles = path.join(dir, 'titles');
+    fs.mkdirSync(titles);
+    fs.writeFileSync(path.join(titles, sid), 'checkout-fix');
+    // A compact keeps the title waiting: Claude Code applies SessionStart's only on startup, resume or fork.
+    assert.equal(takeTitle({ session_id: sid, hook_event_name: 'SessionStart', source: 'compact' }), '');
+    assert.equal(takeTitle({ session_id: sid, hook_event_name: 'Stop' }), '');
+    assert.equal(takeTitle({ session_id: '../x', hook_event_name: 'UserPromptSubmit' }), '');
+    assert.deepEqual(JSON.parse(takeTitle({ session_id: sid, hook_event_name: 'UserPromptSubmit' })), {
+      hookSpecificOutput: { hookEventName: 'UserPromptSubmit', sessionTitle: 'checkout-fix' },
+    });
+    assert.equal(takeTitle({ session_id: sid, hook_event_name: 'UserPromptSubmit' }), '', 'handed over once');
+    assert.deepEqual(fs.readdirSync(titles), [], 'the claimed file is gone too');
+    // A FIFO planted as the title file would hang the prompt.
+    spawnSync('mkfifo', [path.join(titles, sid)]);
+    assert.equal(takeTitle({ session_id: sid, hook_event_name: 'UserPromptSubmit' }), '');
+  } finally {
+    if (prev === undefined) delete process.env.CLAUDE_BOARD_DIR;
+    else process.env.CLAUDE_BOARD_DIR = prev;
+  }
 });
 
 test('subagents live on the parent card, not as cards of their own', () => {
@@ -396,6 +457,21 @@ test('the server serves state, refuses foreign hosts, and archives', async (t) =
   assert.equal(ok.status, 200);
   const after = await (await fetch2(`${base}/api/state`)).json();
   assert.equal(after.cards.find((c) => c.id === 'live').archived, true);
+
+  // A rename shows at once and waits in titles/<sid> for the title hook.
+  const rename = (body) => fetch2(`${base}/api/rename`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  assert.equal((await rename({ sid: 'live', title: '  ' })).status, 400, 'an empty title is refused');
+  assert.equal((await rename({ sid: '../token', title: 'x' })).status, 404, 'a path is not a session');
+  assert.equal((await rename({ sid: 'live', title: 'checkout\nfix' })).status, 200);
+  assert.equal(fs.readFileSync(path.join(boardDir, 'titles', 'live'), 'utf8'), 'checkout fix', 'one line, as /rename takes it');
+  const renamed = await (await fetch2(`${base}/api/state`)).json();
+  assert.equal(renamed.cards.find((c) => c.id === 'live').title, 'checkout fix');
+  const crossRename = await fetch2(`${base}/api/rename`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: 'https://evil.example' },
+    body: JSON.stringify({ sid: 'live', title: 'x' }),
+  });
+  assert.equal(crossRename.status, 403, 'another origin cannot rename');
 
   // The stream opens with the full snapshot, so no push falls between a fetch and the subscribe.
   const first = await new Promise((resolve, reject) => {

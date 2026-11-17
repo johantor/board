@@ -1,5 +1,6 @@
 import { byRecency, COLUMNS, columnOf, isGone, isStale } from './columns.mjs';
 import { resumeCommand } from './resume.mjs';
+import * as api from './api.mjs';
 
 // Earlier shows a week; the server holds more, which search reaches.
 const EARLIER_DAYS = 7;
@@ -11,24 +12,6 @@ let skew = 0; // server clock minus browser clock
 
 const $ = (id) => document.getElementById(id);
 const now = () => Date.now() + skew;
-
-// The printed URL carries the token once. localStorage is scoped to this port's
-// origin, unlike a cookie, so a bookmark of the bare URL keeps working and no
-// other service on 127.0.0.1 ever sees the token.
-const token = (() => {
-  const url = new URL(location.href);
-  const given = url.searchParams.get('t');
-  if (given) {
-    url.searchParams.delete('t');
-    history.replaceState(null, '', url);
-  }
-  try {
-    if (given) localStorage.setItem('board-token', given);
-    return given || localStorage.getItem('board-token') || '';
-  } catch {
-    return given || '';
-  }
-})();
 
 function el(tag, cls, text) {
   const node = document.createElement(tag);
@@ -77,12 +60,52 @@ async function copyResume(c) {
 }
 
 async function setArchived(c, on) {
-  const res = await fetch('/api/archive', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Board-Token': token },
-    body: JSON.stringify({ sid: c.id, on }),
+  if (!(await api.archive(c.id, on))) toast('Could not hide the card.');
+}
+
+async function setTitle(c, title) {
+  const ok = await api.rename(c.id, title);
+  toast(ok ? 'Renamed. Claude Code takes the name at the session’s next prompt.' : 'Could not rename the session.');
+}
+
+// The card being renamed keeps its node while pushes arrive, so the field keeps
+// focus and what was typed. Ending the edit drops the node, so the next render rebuilds it.
+let editing = null;
+
+function endEdit(c, title) {
+  editing = null;
+  cardEls.delete(c.id);
+  render();
+  cardEls.get(c.id)?.node.querySelector('[data-action="rename"]')?.focus({ preventScroll: true });
+  if (title !== undefined) setTitle(c, title);
+}
+
+function startEdit(c, heading) {
+  if (editing) return;
+  editing = c.id;
+  const input = el('input', 'title-input');
+  input.value = c.title;
+  input.maxLength = 200;
+  input.setAttribute('aria-label', 'Session name');
+  input.placeholder = 'Name this session';
+  let done = false;
+  const finish = (save) => {
+    if (done) return;
+    done = true;
+    const title = input.value.trim();
+    endEdit(c, save && title && title !== c.title ? title : undefined);
+  };
+  input.addEventListener('click', (ev) => ev.stopPropagation());
+  input.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Enter' && ev.key !== 'Escape') return;
+    // Focus moves to the Rename button: the key must not press it too.
+    ev.preventDefault();
+    finish(ev.key === 'Enter');
   });
-  if (!res.ok) toast('Could not hide the card.');
+  input.addEventListener('blur', () => finish(true));
+  heading.replaceChildren(input);
+  input.focus();
+  input.select();
 }
 
 function matches(c, f) {
@@ -143,6 +166,12 @@ function renderCard(c, t) {
   head.append(el('span', 'dot'), el('span', 'sr-only', STATE_LABEL[state]), time);
   const title = el('h3', 'title', c.title || c.id.slice(0, 8));
   title.id = titleId;
+  title.title = 'Click to rename';
+  // A click on the name renames; the Rename button is the keyboard path.
+  title.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    startEdit(c, title);
+  });
   node.append(head, title);
   if (c.repo || c.branch) {
     const chips = el('div', 'chips');
@@ -191,6 +220,7 @@ function renderCard(c, t) {
   const actions = el('div', 'actions');
   actions.append(
     button('Copy resume', 'primary', 'copy', () => copyResume(c), 'copy'),
+    button('Rename', '', 'rename', () => startEdit(c, title), 'pencil', true),
     more,
     button(c.archived ? 'Unhide' : 'Hide', '', 'archive', () => setArchived(c, !c.archived), c.archived ? 'eye' : 'eye-off', true),
   );
@@ -285,6 +315,7 @@ function cardEl(c, t) {
   // Everything the card shows except the relative time, which is patched in place.
   const key = JSON.stringify([c, expanded.has(c.id), isStale(c, t), isGone(c, t)]);
   let entry = cardEls.get(c.id);
+  if (entry && editing === c.id) return entry.node;
   if (!entry || entry.key !== key) {
     entry = { key, node: renderCard(c, t) };
     if (fresh.delete(c.id)) entry.node.classList.add('is-new');
@@ -343,11 +374,11 @@ function render() {
 function connect() {
   const live = $('live');
   // Every (re)connect starts with a full `state` event, so nothing between snapshot and stream is lost.
-  if (!token) {
+  if (!api.token) {
     live.textContent = 'no token: open the board with /board:open';
     return;
   }
-  const es = new EventSource(`/api/stream?t=${encodeURIComponent(token)}`);
+  const es = api.stream();
   es.onopen = () => {
     live.textContent = 'live';
     live.classList.add('on');
