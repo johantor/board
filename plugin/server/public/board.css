@@ -424,6 +424,42 @@ button, input, select { font: inherit; color: inherit; }
 }
 .title-input:focus-visible { outline: 2px solid var(--accent-soft); outline-offset: 0; }
 
+/* A permission prompt the board can answer: its full input, then Allow and Deny. */
+.ask { margin-top: 8px; cursor: default; }
+.ask + .ask { padding-top: 8px; border-top: 1px dashed var(--line); }
+.ask-text { margin-bottom: 4px; font-size: 12px; font-weight: 600; color: var(--ink); }
+.ask-input {
+  max-height: 9.5em;
+  margin: 0;
+  padding: 6px 8px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--inset);
+  font: 11.5px/1.45 var(--mono);
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ask-actions { display: flex; gap: 6px; margin-top: 6px; }
+.ask-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--card);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ask-actions .icon { width: 14px; height: 14px; }
+.ask-actions .allow { border-color: var(--turn); background: var(--turn); color: var(--card); }
+.ask-actions .deny:hover { border-color: var(--needs); color: var(--needs); }
+.ask-actions button:disabled { opacity: 0.5; cursor: wait; }
+
 /* Repo and branch: a meta line with icons, not pills. */
 .chips { display: flex; flex-wrap: wrap; gap: 2px 12px; }
 

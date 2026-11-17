@@ -180,6 +180,9 @@ function renderCard(c, t) {
     node.append(chips);
   }
   if (c.activity) node.append(el('div', 'activity', c.activity));
+  // One prompt: the activity line above already names it. Several: each names its own.
+  const asks = permissions(c, state);
+  for (const q of asks) node.append(renderAsk(c, q, asks.length > 1));
 
   const badges = el('div', 'badges');
   if (c.crew) badges.append(el('span', 'badge crew', c.agent || 'Crew'));
@@ -228,6 +231,40 @@ function renderCard(c, t) {
 
   if (open) node.append(renderDetail(c));
   return node;
+}
+
+// Permission prompts the board can answer, oldest first: an `input` marks one.
+function permissions(c, state) {
+  if (state !== 'needs') return [];
+  return Object.values(c.open)
+    .filter((q) => q.input !== undefined && q.call)
+    .sort((a, b) => a.ts - b.ts);
+}
+
+async function answer(c, q, allow, row) {
+  for (const b of row.querySelectorAll('button')) b.disabled = true;
+  const ok = await api.decide(c.id, q.call, allow);
+  if (ok) toast(allow ? 'Allowed.' : 'Denied.');
+  else {
+    toast('The board cannot answer this prompt: answer it in the terminal.');
+    for (const b of row.querySelectorAll('button')) b.disabled = false;
+  }
+}
+
+// The full input, so an Allow approves what you can see. A cut input ends in …:
+// the terminal shows the rest.
+function renderAsk(c, q, named) {
+  const box = el('div', 'ask');
+  box.addEventListener('click', (ev) => ev.stopPropagation());
+  if (named) box.append(el('div', 'ask-text', q.text));
+  box.append(el('pre', 'ask-input', q.input));
+  const row = el('div', 'ask-actions');
+  row.append(
+    button('Allow', 'allow', `allow-${q.call}`, () => answer(c, q, true, row), 'check'),
+    button('Deny', 'deny', `deny-${q.call}`, () => answer(c, q, false, row)),
+  );
+  box.append(row);
+  return box;
 }
 
 function renderDetail(c) {

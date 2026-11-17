@@ -38,3 +38,4 @@ async function post(path, body) {
 
 export const archive = (sid, on) => post('/api/archive', { sid, on });
 export const rename = (sid, title) => post('/api/rename', { sid, title });
+export const decide = (sid, call, allow) => post('/api/decide', { sid, call, allow });

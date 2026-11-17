@@ -51,6 +51,15 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   prompts again would otherwise start Node on every prompt.
   `server/title.mjs` (`takeTitle()`) prints the `sessionTitle` output and deletes the file;
   `SessionStart` applies it only on `startup`, `resume` and `fork`, so a compact leaves it waiting.
+- `hooks/decide.sh` — the decide hook, on `PermissionRequest` beside `capture.sh`, synchronous
+  (`timeout: 600`). `server/decide.mjs` (`wait()`) returns at once when no board answers
+  `isBoard`, else writes `decisions/<sid>.<call>.wait` and polls every 300 ms for
+  `decisions/<sid>.<call>`, which `POST /api/decide` writes. A real session showed that Claude
+  Code keeps the terminal prompt open while the hook runs and applies the first answer, but
+  leaves the hook running after a terminal answer: so `wait()` tails the log and stops on the
+  call's `PostToolUse(Failure)`, a turn end, or its subagent's stop (`answered()`). The same
+  call asked again starts a new hook that overwrites `.wait`; the older one sees it is not the
+  owner and stops, so it never takes the newer prompt's answer.
 - `hooks/capture.sh` — the capture hook, wired on 12 events in `hooks/hooks.json`, async on all but
   `PermissionRequest` and `SessionEnd` (synchronous, `timeout: 5`: the first lands before its
   tool runs, the second before the process exits; `capture.test.sh` asserts the split). A Bash
@@ -58,7 +67,9 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
 - `server/capture.mjs` — `distill()` turns a hook payload into one record (`v`, `ts`, `e`,
   `sid`, plus per-event fields); `null` drops events the board ignores, such as a
   `permission_prompt` notification (PermissionRequest reports it). Strings are clipped so a line stays under 4 KiB: appends from
-  several sessions then do not interleave. `gitInfo()` reads `.git/HEAD` as a file, no fork,
+  several sessions then do not interleave; a PermissionRequest's `input` (the command, else the
+  input as JSON) is clipped at 700 characters (4 KiB at four bytes each, with the rest) and lands in the card's `open` entry with its `call`, which
+  marks the prompts the page shows Allow and Deny for. `gitInfo()` reads `.git/HEAD` as a file, no fork,
   and only a plain file of this user's (`readSmall`): a planted FIFO would block the read.
 - `server/reduce.mjs` — `apply(board, record)` is the fold. Record kinds: hook events, `History`
   (backfill; fills gaps, never overrides a hook), `BoardArchive` and `BoardRename` (written by
@@ -85,9 +96,11 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   once), sent as `X-Board-Token`, or as `?t=` on `/api/stream` only (EventSource sets no
   header); never a cookie, which reaches every port on 127.0.0.1. The page takes `?t=` once into
   localStorage (origin-scoped, so per port). `isBoard` sends a nonce and checks the HMAC
-  `/api/health` returns, so the token never goes to a squatter on the port. `POST /api/archive` and `/api/rename` need
-  JSON, no foreign `Origin`, and a known session id that matches `SID_RE` (`paths.mjs`), so a
-  rename's `titles/<sid>` file name has no separator. `/api/stream` opens with a full `state` event and then sends changed `cards`; the
+  `/api/health` returns, so the token never goes to a squatter on the port. `POST /api/archive`, `/api/rename` and
+  `/api/decide` need JSON, no foreign `Origin`, and a known session id that matches `SID_RE`
+  (`paths.mjs`), so a hand-off file name (`writeHandoff()`: temp file, then rename) has no
+  separator. `/api/decide` also needs the call open on the card with an `input`, and a waiting
+  hook (its `.wait` file): a click stored for nobody could approve a later identical call. `/api/stream` opens with a full `state` event and then sends changed `cards`; the
   page loads from the stream alone, so no push falls between a snapshot and the subscribe.
 - `server/public/` — the page. `columns.mjs` (the time rules, `STALE_MS`, `GONE_MS`, and
   `byRecency`: age group, then session start, so busy cards keep their place) and
