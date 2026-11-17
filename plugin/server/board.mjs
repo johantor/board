@@ -9,7 +9,7 @@ import net from 'node:net';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { autostartFile, boardDir, CALL_RE, decisionsDir, eventsFile, isMain, projectsDir, SID_RE, titlesDir } from './paths.mjs';
+import { autostartFile, boardDir, CALL_RE, decisionName, decisionsDir, eventsFile, isMain, projectsDir, SID_RE, titlesDir } from './paths.mjs';
 import { apply, createBoard, snapshot } from './reduce.mjs';
 import { scanHistory } from './history.mjs';
 
@@ -247,10 +247,14 @@ function startServer(opts) {
   // click must not approve a later call.
   function decide(msg) {
     const c = board.cards.get(msg.sid);
-    const open = typeof msg.call === 'string' && CALL_RE.test(msg.call) && Object.values(c.open).some((q) => q.call === msg.call && q.input !== undefined);
-    if (!open || typeof msg.allow !== 'boolean') return { status: 409, error: 'no such prompt' };
-    const name = `${msg.sid}.${msg.call}`;
-    if (!fs.existsSync(path.join(decisionsDir(), `${name}.wait`))) return { status: 409, error: 'no hook waits: answer in the terminal' };
+    const who = typeof msg.who === 'string' ? msg.who : '';
+    const q = typeof msg.call === 'string' && CALL_RE.test(msg.call) && c.open[`${who}|${msg.call}`];
+    // `ts` names the prompt the page showed: a retry of the same call is a new prompt with a new ts.
+    if (!q || q.input === undefined || q.ts !== msg.ts || typeof msg.allow !== 'boolean') return { status: 409, error: 'no such prompt' };
+    const name = decisionName(msg.sid, who, msg.call);
+    if (!name || !fs.existsSync(path.join(decisionsDir(), `${name}.wait`))) return { status: 409, error: 'no hook waits: answer in the terminal' };
+    // The first answer stands: a Deny then a quick Allow must not flip it before the hook reads it.
+    if (fs.existsSync(path.join(decisionsDir(), name))) return { status: 409, error: 'already answered' };
     writeHandoff(decisionsDir(), name, msg.allow ? 'allow' : 'deny');
   }
 

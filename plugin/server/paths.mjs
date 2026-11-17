@@ -45,6 +45,14 @@ export function decisionsDir() {
 // capture.mjs's callKey(): 16 hex characters.
 export const CALL_RE = /^[0-9a-f]{16}$/;
 
+// One prompt's hand-off name: the session, who asked (a subagent's id, `-` for the
+// session itself), and the call, so two askers of the same call never share one.
+// '' when an id could make a path.
+export function decisionName(sid, who, call) {
+  if (!SID_RE.test(sid) || (who && !SID_RE.test(who)) || !CALL_RE.test(call)) return '';
+  return `${sid}.${who || '-'}.${call}`;
+}
+
 // A session id that is also a safe file name: no separator, no dot.
 export const SID_RE = /^[A-Za-z0-9_-]{1,128}$/;
 

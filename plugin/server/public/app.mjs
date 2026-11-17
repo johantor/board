@@ -243,7 +243,7 @@ function permissions(c, state) {
 
 async function answer(c, q, allow, row) {
   for (const b of row.querySelectorAll('button')) b.disabled = true;
-  const ok = await api.decide(c.id, q.call, allow);
+  const ok = await api.decide(c.id, q, allow);
   if (ok) toast(allow ? 'Allowed.' : 'Denied.');
   else {
     toast('The board cannot answer this prompt: answer it in the terminal.');
@@ -260,8 +260,8 @@ function renderAsk(c, q, named) {
   box.append(el('pre', 'ask-input', q.input));
   const row = el('div', 'ask-actions');
   row.append(
-    button('Allow', 'allow', `allow-${q.call}`, () => answer(c, q, true, row), 'check'),
-    button('Deny', 'deny', `deny-${q.call}`, () => answer(c, q, false, row)),
+    button('Allow', 'allow', `allow-${q.who}-${q.call}`, () => answer(c, q, true, row), 'check'),
+    button('Deny', 'deny', `deny-${q.who}-${q.call}`, () => answer(c, q, false, row)),
   );
   box.append(row);
   return box;

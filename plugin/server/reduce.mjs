@@ -88,9 +88,9 @@ function worker(c, rec) {
 // question such as an MCP elicitation), so parallel calls each keep their own.
 const key = (who, call) => `${who}|${call || ''}`;
 
-// `input` marks a permission prompt the board can answer (call and full input).
+// `input` marks a permission prompt the board can answer: who asked, the call, the full input.
 function ask(c, who, call, text, ts, input) {
-  c.open[key(who, call)] = input === undefined ? { text, ts } : { text, ts, call, input };
+  c.open[key(who, call)] = input === undefined ? { text, ts } : { text, ts, who, call, input };
 }
 
 // A finished call answers its own question, and any call-less one from the same asker.

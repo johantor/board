@@ -277,13 +277,15 @@ test('distill keeps the fields the reducer reads, nothing more', () => {
 });
 
 test('a permission prompt keeps its full input, so the board can show what Allow approves', () => {
-  const command = 'npm test\nrm -rf build';
+  // Verbatim: two spaces inside quotes name another path than one.
+  const command = "npm test\nrm -- 'build  backup'";
   const rec = distill({ session_id: 's', hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command } }, 1);
   assert.equal(rec.tool, 'Bash npm test', 'the summary has the first line only');
+  assert.equal(distill({ session_id: 's', hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: 'x'.repeat(800) } }, 1).input.length, 700);
   assert.equal(rec.input, command);
   assert.equal(rec.call, callKey('Bash', { command }));
   const c = run([{ e: 'PermissionRequest', tool: rec.tool, call: rec.call, input: rec.input }]);
-  assert.deepEqual(Object.values(c.open)[0], { text: 'Allow: Bash npm test?', ts: 1000, call: rec.call, input: command });
+  assert.deepEqual(Object.values(c.open)[0], { text: 'Allow: Bash npm test?', ts: 1000, who: '', call: rec.call, input: command });
   // A question with no call (an elicitation) has no buttons.
   const d = run([{ e: 'Notification', ntype: 'elicitation_dialog', msg: 'Which env?' }]);
   assert.equal(Object.values(d.open)[0].input, undefined);
@@ -293,6 +295,9 @@ test('the decide hook stops when the terminal answers, the turn moves on, or a s
   assert.ok(answered({ sid: 's', e: 'PostToolUse', call: 'c' }, 's', 'c'));
   assert.ok(answered({ sid: 's', e: 'PostToolUseFailure', call: 'c' }, 's', 'c'));
   assert.ok(!answered({ sid: 's', e: 'PostToolUse', call: 'other' }, 's', 'c'), 'another call');
+  assert.ok(!answered({ sid: 's', e: 'PostToolUse', call: 'c', aid: 'a2' }, 's', 'c'), "a subagent's run of the same call");
+  assert.ok(!answered({ sid: 's', e: 'PostToolUse', call: 'c' }, 's', 'c', 'a1'), "the session's run, for a subagent's prompt");
+  assert.ok(answered({ sid: 's', e: 'PostToolUse', call: 'c', aid: 'a1' }, 's', 'c', 'a1'));
   assert.ok(!answered({ sid: 's', e: 'PermissionRequest', call: 'c' }, 's', 'c'), 'its own prompt, logged in parallel');
   assert.ok(!answered({ sid: 'x', e: 'Stop' }, 's', 'c'), 'another session');
   assert.ok(answered({ sid: 's', e: 'Stop' }, 's', 'c'));
@@ -566,7 +571,14 @@ test('Allow on the board reaches the waiting hook, and only that hook', async (t
   const call = callKey('Bash', tool_input);
   const log = path.join(boardDir, 'events.jsonl');
   const line = (rec) => `${JSON.stringify({ v: 1, ts: Date.now(), sid, ...rec })}\n`;
-  fs.writeFileSync(log, line({ e: 'PermissionRequest', tool: 'Bash npm test', call, input: 'npm test' }));
+  const t1 = Date.now() - 1000;
+  let shown = t1; // the prompt the page shows
+  // The session and its subagent a1 ask for the same call at once.
+  fs.writeFileSync(
+    log,
+    line({ e: 'PermissionRequest', ts: t1, tool: 'Bash npm test', call, input: 'npm test' }) +
+      line({ e: 'PermissionRequest', ts: t1, aid: 'a1', agent: 'crew:backend', tool: 'Bash npm test', call, input: 'npm test' }),
+  );
   const child = spawn(process.execPath, [path.join(HERE, '../plugin/server/board.mjs'), '--port', '0'], {
     env: { ...process.env, CLAUDE_BOARD_DIR: boardDir, CLAUDE_CONFIG_DIR: tmp() },
     stdio: ['ignore', 'pipe', 'inherit'],
@@ -585,14 +597,14 @@ test('Allow on the board reaches the waiting hook, and only that hook', async (t
     }
   });
   const token = fs.readFileSync(path.join(boardDir, 'token'), 'utf8').trim();
-  const decide = (allow) =>
+  const decide = (allow, who = '') =>
     fetch(`http://127.0.0.1:${port}/api/decide`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Board-Token': token },
-      body: JSON.stringify({ sid, call, allow }),
+      body: JSON.stringify({ sid, who, call, ts: shown, allow }),
     });
   const payload = { session_id: sid, hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input };
-  const waiter = path.join(boardDir, 'decisions', `${sid}.${call}.wait`);
+  const waiter = path.join(boardDir, 'decisions', `${sid}.-.${call}.wait`);
   const opts = { pollMs: 20, maxMs: 5000 };
 
   assert.equal((await decide(true)).status, 409, 'no hook waits: the click is refused, not stored for a later call');
@@ -616,6 +628,34 @@ test('Allow on the board reaches the waiting hook, and only that hook', async (t
   assert.equal(await older, '');
   assert.equal((await decide(false)).status, 200);
   assert.equal(JSON.parse(await newer).hookSpecificOutput.decision.behavior, 'deny');
+
+  // The first answer stands: a quick second click cannot flip it before the hook reads it.
+  hook = wait({ ...payload }, { pollMs: 500, maxMs: 5000 });
+  await waitFor(() => fs.existsSync(waiter));
+  assert.equal((await decide(false)).status, 200);
+  assert.equal((await decide(true)).status, 409);
+  assert.equal(JSON.parse(await hook).hookSpecificOutput.decision.behavior, 'deny');
+
+  // Two askers of the same call each get their own answer.
+  const self = wait(payload, opts);
+  const sub = wait({ ...payload, agent_id: 'a1' }, opts);
+  await waitFor(() => fs.existsSync(waiter) && fs.existsSync(path.join(boardDir, 'decisions', `${sid}.a1.${call}.wait`)));
+  assert.equal((await decide(true, 'a1')).status, 200);
+  assert.equal(JSON.parse(await sub).hookSpecificOutput.decision.behavior, 'allow');
+  assert.equal((await decide(false)).status, 200);
+  assert.equal(JSON.parse(await self).hookSpecificOutput.decision.behavior, 'deny');
+  assert.equal((await decide(true, '../x')).status, 409, 'an asker id that would make a path');
+
+  // A retry of the same call is a new prompt: a late click on the old one does not answer it.
+  const t2 = Date.now();
+  fs.appendFileSync(log, line({ e: 'PermissionRequest', ts: t2, tool: 'Bash npm test', call, input: 'npm test' }));
+  await waitFor(async () => (await (await fetch(`http://127.0.0.1:${port}/api/state`, { headers: { 'X-Board-Token': token } })).json()).cards[0].open[`|${call}`].ts === t2);
+  hook = wait(payload, opts);
+  await waitFor(() => fs.existsSync(waiter));
+  assert.equal((await decide(true)).status, 409, 'the click named the old prompt');
+  shown = t2;
+  assert.equal((await decide(true)).status, 200);
+  assert.equal(JSON.parse(await hook).hookSpecificOutput.decision.behavior, 'allow');
 
   // No board on the port: no wait at all.
   process.env.CLAUDE_BOARD_PORT = '1';

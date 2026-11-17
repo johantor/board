@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createTail, isBoard, parseArgs } from './board.mjs';
 import { callKey } from './capture.mjs';
-import { boardDir, CALL_RE, decisionsDir, eventsFile, isMain, SID_RE } from './paths.mjs';
+import { boardDir, decisionName, decisionsDir, eventsFile, isMain } from './paths.mjs';
 
 const POLL_MS = 300;
 // Under the hook's 600 s timeout in hooks.json, so the hook ends on its own.
@@ -15,9 +15,11 @@ const MAX_WAIT_MS = 590 * 1000;
 const ENDS_TURN = new Set(['Stop', 'StopFailure', 'UserPromptSubmit', 'SessionEnd']);
 
 // Whether a log record shows this prompt answered in the terminal.
+// Only this asker's: another agent's run of the same call answers another prompt.
 export function answered(rec, sid, call, aid) {
   if (!rec || rec.sid !== sid) return false;
-  if (rec.call === call && (rec.e === 'PostToolUse' || rec.e === 'PostToolUseFailure')) return true;
+  const mine = (rec.aid || '') === (aid || '');
+  if (mine && rec.call === call && (rec.e === 'PostToolUse' || rec.e === 'PostToolUseFailure')) return true;
   if (aid) return rec.e === 'SubagentStop' && rec.aid === aid;
   return ENDS_TURN.has(rec.e) || (rec.e === 'Notification' && rec.ntype === 'idle_prompt');
 }
@@ -51,12 +53,12 @@ async function boardRunning() {
 }
 
 export async function wait(p, { pollMs = POLL_MS, maxMs = MAX_WAIT_MS } = {}) {
-  if (!p || p.hook_event_name !== 'PermissionRequest' || !SID_RE.test(p.session_id ?? '')) return '';
-  const call = callKey(p.tool_name, p.tool_input);
-  if (!CALL_RE.test(call)) return '';
+  if (!p || p.hook_event_name !== 'PermissionRequest' || typeof p.session_id !== 'string') return '';
+  const name = decisionName(p.session_id, typeof p.agent_id === 'string' ? p.agent_id : '', callKey(p.tool_name, p.tool_input));
+  if (!name) return '';
+  const call = name.slice(name.lastIndexOf('.') + 1);
   // No board, no button to click: give the terminal the prompt at once.
   if (!(await boardRunning())) return '';
-  const name = `${p.session_id}.${call}`;
   const file = path.join(decisionsDir(), name);
   // The newest hook for a call owns it: the same call asked again (a terminal Deny,
   // then a retry) starts a new hook, and the older one must not take its answer.

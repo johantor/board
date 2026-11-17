@@ -137,6 +137,8 @@ export function callKey(name, input) {
   return crypto.createHash('sha256').update(`${name}\n${JSON.stringify(input ?? null)}`).digest('hex').slice(0, 16);
 }
 
+const cut = (text, max) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
+
 // A command as written; any other input as JSON.
 function inputText(input) {
   if (input && typeof input.command === 'string') return input.command;
@@ -182,7 +184,8 @@ export function distill(p, now = Date.now()) {
       rec.tool = summarizeTool(p.tool_name, p.tool_input, p.cwd);
       rec.call = callKey(p.tool_name, p.tool_input);
       // What a board Allow approves: more than the one-line summary.
-      if (e === 'PermissionRequest') rec.input = clip(inputText(p.tool_input), CLIP.input);
+      // Verbatim, unlike clip(): folded whitespace would show a different command from the one Allow runs.
+      if (e === 'PermissionRequest') rec.input = cut(inputText(p.tool_input), CLIP.input);
       break;
     case 'Notification':
       if (!NOTIFICATIONS.has(p.notification_type)) return null;
