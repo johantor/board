@@ -141,6 +141,19 @@ else
   _fail "title.sh must run in the foreground with a timeout on SessionStart and UserPromptSubmit"
 fi
 
+# The decide hook waits in the foreground, longer than any other: a board answer can take minutes.
+if jq -e '[.hooks.PermissionRequest[] .hooks[] | select(.command | endswith("/decide.sh"))] | length == 1 and all(.async != true and .timeout >= 600)' "$wiring" >/dev/null; then
+  _pass
+else
+  _fail "decide.sh must run in the foreground on PermissionRequest with a 600 s timeout"
+fi
+# With no board running there is no button to click: the hook returns at once, with no decision.
+start=$(date +%s)
+CLAUDE_BOARD_PORT=1 assert_allow "decide, no board" "decide.sh" \
+  '{"session_id":"d1","hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"ls"}}'
+if [ -z "$_stdout" ] && [ $(($(date +%s) - start)) -lt 3 ]; then _pass; else _fail "decide, no board: waited or printed: ${_stdout}"; fi
+assert_allow "decide, bad JSON" "decide.sh" 'not json'
+
 # The reducer, history backfill and server have their own Node suite.
 if node --test "$(dirname "${BASH_SOURCE[0]}")"/*.test.mjs >"$FIXTURE_ROOT/node-test.log" 2>&1; then
   _pass

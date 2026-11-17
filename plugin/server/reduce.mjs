@@ -88,8 +88,9 @@ function worker(c, rec) {
 // question such as an MCP elicitation), so parallel calls each keep their own.
 const key = (who, call) => `${who}|${call || ''}`;
 
-function ask(c, who, call, text, ts) {
-  c.open[key(who, call)] = { text, ts };
+// `input` marks a permission prompt the board can answer: who asked, the call, the full input.
+function ask(c, who, call, text, ts, input) {
+  c.open[key(who, call)] = input === undefined ? { text, ts } : { text, ts, who, call, input };
 }
 
 // A finished call answers its own question, and any call-less one from the same asker.
@@ -192,7 +193,7 @@ function applyWorker(c, rec) {
       answerCall(c, rec.aid, rec.call);
       break;
     case 'PermissionRequest':
-      ask(c, rec.aid, rec.call, `${w.type} asks: allow ${rec.tool}?`, rec.ts);
+      ask(c, rec.aid, rec.call, `${w.type} asks: allow ${rec.tool}?`, rec.ts, rec.call && (rec.input || rec.tool || ''));
       break;
     case 'Notification':
       if (rec.ntype !== 'idle_prompt') ask(c, rec.aid, '', `${w.type}: ${rec.msg || 'needs input'}`, rec.ts);
@@ -244,7 +245,7 @@ function applySelf(c, rec) {
       answerCall(c, SELF, rec.call);
       break;
     case 'PermissionRequest':
-      ask(c, SELF, rec.call, `Allow: ${rec.tool}?`, rec.ts);
+      ask(c, SELF, rec.call, `Allow: ${rec.tool}?`, rec.ts, rec.call && (rec.input || rec.tool || ''));
       break;
     case 'Notification':
       // Claude waits at the prompt: the turn ended, even with no Stop (Esc, a denied prompt).

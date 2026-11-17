@@ -10,7 +10,8 @@ import { autostartFile, boardDir, eventsFile, isMain } from './paths.mjs';
 
 // One line stays well under 4 KiB so concurrent appends from several sessions do
 // not interleave; the clip limits below keep it there.
-const CLIP = { prompt: 200, msg: 300, tool: 120 };
+// Characters, not bytes: 700 four-byte characters still leave room for the rest.
+const CLIP = { prompt: 200, msg: 300, tool: 120, input: 700 };
 
 export function clip(text, max) {
   if (typeof text !== 'string') return undefined;
@@ -136,6 +137,14 @@ export function callKey(name, input) {
   return crypto.createHash('sha256').update(`${name}\n${JSON.stringify(input ?? null)}`).digest('hex').slice(0, 16);
 }
 
+const cut = (text, max) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
+
+// A command as written; any other input as JSON.
+function inputText(input) {
+  if (input && typeof input.command === 'string') return input.command;
+  return JSON.stringify(input ?? null, null, 1);
+}
+
 // Repo and branch for a card. A folder outside git names the repo and clears the
 // branch, so a session that moved out of a repo does not keep the old one.
 export function where(cwd) {
@@ -174,6 +183,9 @@ export function distill(p, now = Date.now()) {
     case 'PermissionRequest':
       rec.tool = summarizeTool(p.tool_name, p.tool_input, p.cwd);
       rec.call = callKey(p.tool_name, p.tool_input);
+      // What a board Allow approves: more than the one-line summary.
+      // Verbatim, unlike clip(): folded whitespace would show a different command from the one Allow runs.
+      if (e === 'PermissionRequest') rec.input = cut(inputText(p.tool_input), CLIP.input);
       break;
     case 'Notification':
       if (!NOTIFICATIONS.has(p.notification_type)) return null;

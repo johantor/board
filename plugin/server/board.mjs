@@ -9,7 +9,7 @@ import net from 'node:net';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { autostartFile, boardDir, eventsFile, isMain, projectsDir, SID_RE, titlesDir } from './paths.mjs';
+import { autostartFile, boardDir, CALL_RE, decisionName, decisionsDir, eventsFile, isMain, projectsDir, SID_RE, titlesDir } from './paths.mjs';
 import { apply, createBoard, snapshot } from './reduce.mjs';
 import { scanHistory } from './history.mjs';
 
@@ -72,7 +72,7 @@ export function proof(token, nonce) {
 
 // Our board, not whatever else answers on the port: only ours can sign a fresh
 // nonce with the token. The token itself never goes to the port.
-async function isBoard(port, token) {
+export async function isBoard(port, token) {
   try {
     const nonce = crypto.randomBytes(16).toString('hex');
     const res = await fetch(`http://${HOST}:${port}/api/health?n=${nonce}`, { signal: AbortSignal.timeout(500) });
@@ -102,10 +102,19 @@ function openBrowser(url) {
   child.unref();
 }
 
+// A file a hook waits for (titles/, decisions/): written, then renamed into place,
+// so the hook never claims it half-written.
+function writeHandoff(dir, name, data) {
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const tmp = path.join(dir, `${name}.tmp`);
+  fs.writeFileSync(tmp, data, { mode: 0o600 });
+  fs.renameSync(tmp, path.join(dir, name));
+}
+
 // Reads the log from a byte offset and returns whole records; a line still being
-// written stays in `rest` until its newline arrives.
-export function createTail(file) {
-  let offset = 0;
+// written stays in `rest` until its newline arrives. `start` skips what is there.
+export function createTail(file, start = 0) {
+  let offset = start;
   let rest = Buffer.alloc(0);
   let ino = null;
   return {
@@ -229,13 +238,24 @@ function startServer(opts) {
   function rename(msg) {
     const title = typeof msg.title === 'string' ? cleanTitle(msg.title) : '';
     if (!title) return { status: 400, error: 'title required' };
-    const dir = titlesDir();
-    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-    // Write, then rename into place: the hook never claims a half-written title.
-    const tmp = path.join(dir, `${msg.sid}.tmp`);
-    fs.writeFileSync(tmp, title, { mode: 0o600 });
-    fs.renameSync(tmp, path.join(dir, msg.sid));
+    writeHandoff(titlesDir(), msg.sid, title);
     append({ e: 'BoardRename', sid: msg.sid, title });
+  }
+
+  // An answer to an open permission prompt, for the decide hook that waits on it.
+  // Only a prompt the card shows as open, and only while its hook waits: a stale
+  // click must not approve a later call.
+  function decide(msg) {
+    const c = board.cards.get(msg.sid);
+    const who = typeof msg.who === 'string' ? msg.who : '';
+    const q = typeof msg.call === 'string' && CALL_RE.test(msg.call) && c.open[`${who}|${msg.call}`];
+    // `ts` names the prompt the page showed: a retry of the same call is a new prompt with a new ts.
+    if (!q || q.input === undefined || q.ts !== msg.ts || typeof msg.allow !== 'boolean') return { status: 409, error: 'no such prompt' };
+    const name = decisionName(msg.sid, who, msg.call);
+    if (!name || !fs.existsSync(path.join(decisionsDir(), `${name}.wait`))) return { status: 409, error: 'no hook waits: answer in the terminal' };
+    // The first answer stands: a Deny then a quick Allow must not flip it before the hook reads it.
+    if (fs.existsSync(path.join(decisionsDir(), name))) return { status: 409, error: 'already answered' };
+    writeHandoff(decisionsDir(), name, msg.allow ? 'allow' : 'deny');
   }
 
   // Filled once the port is bound: with --port 0 it is known only then.
@@ -308,7 +328,7 @@ function startServer(opts) {
       req.on('close', () => clients.delete(res));
       return;
     }
-    const action = req.method === 'POST' && { '/api/archive': archive, '/api/rename': rename }[url.pathname];
+    const action = req.method === 'POST' && { '/api/archive': archive, '/api/rename': rename, '/api/decide': decide }[url.pathname];
     if (action) {
       // JSON only, from this origin: a cross-site form cannot send it without a preflight we never answer.
       const origin = req.headers.origin;
